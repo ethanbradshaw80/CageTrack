@@ -1,0 +1,14 @@
+# ---- OS / editor cruft ----
+.DS_Store
+Thumbs.db
+*.log
+
+# ---- Real company data (employee names, tool logs) ----
+# Kept OUT of the repo by default. The dashboard still runs on mockData.js.
+# If this repo is PRIVATE and you want the live sample included, delete these lines.
+tool_checkout_log.csv
+tool_returns_log.csv
+sample_cage_data.csv
+
+# ---- Local dev scratch ----
+*.tmp
