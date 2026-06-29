@@ -100,10 +100,21 @@ function canonicalTool(raw) {
   const cleaned = cleanItem(raw);
   return aliasLookup()[normTool(cleaned)] || cleaned;
 }
-// Should this row be dropped (test/junk)?
+// Should this row be dropped by tool name (test/junk)?
 function isExcludedTool(item) {
   const ex = (CONFIG.EXCLUDE_TOOL_NAMES || []).map(normTool);
   return ex.includes(normTool(item));
+}
+
+// Should this SPECIFIC row be dropped (matched on tech + item + date)?
+function isExcludedRow(rec) {
+  const rows = CONFIG.EXCLUDE_ROWS || [];
+  const recDate = String(rec.checkoutTime || rec.returnTime || "").trim();
+  return rows.some((e) =>
+    (e.technician == null || normTool(e.technician) === normTool(rec.technician)) &&
+    (e.item == null || normTool(e.item) === normTool(rec.item)) &&
+    (e.date == null || String(e.date).trim() === recDate)
+  );
 }
 
 /* ---------- Status logic ---------- */
@@ -264,7 +275,9 @@ function linkReturn(coId, retId) {
 
 async function loadSheet(url, colmap) {
   if (!url || url.includes("PASTE")) return [];
-  const res = await fetch(url);
+  // cache-bust so each refresh pulls the latest rows, not a cached copy
+  const sep = url.includes("?") ? "&" : "?";
+  const res = await fetch(url + sep + "_cb=" + Date.now(), { cache: "no-store" });
   if (!res.ok) throw new Error("Failed to fetch sheet (" + res.status + "): " + url);
   const rows = parseCSV(await res.text());
   if (!rows.length) return [];
@@ -275,7 +288,7 @@ async function loadSheet(url, colmap) {
     const raw = {};
     for (const key in colmap) raw[key] = idx[key] > -1 ? cells[idx[key]] : "";
     return enrich(raw);
-  }).filter((r) => (r.technician || r.item) && !isExcludedTool(r.item));
+  }).filter((r) => (r.technician || r.item) && !isExcludedTool(r.item) && !isExcludedRow(r));
 }
 
 /* CSV parser that handles quoted fields + commas inside quotes */
@@ -365,6 +378,9 @@ function renderKPIs(checkouts, returns) {
   $("kpiReturns").textContent = returnsToday;
   $("kpiOutstanding").textContent = outstanding;
   $("kpiOverdue").textContent = overdue;
+  // only show the red "danger" styling when something is actually overdue
+  const odCard = $("kpiOverdue").closest(".kpi-card");
+  if (odCard) odCard.classList.toggle("kpi-danger", overdue > 0);
   $("kpiAvgReturn").textContent = humanDuration(avg);
   $("kpiTopTech").textContent = topN ? `${topTech} (${topN})` : "—";
   $("kpiTopTechCard").dataset.tech = topN ? topTech : "";
@@ -472,8 +488,9 @@ function renderMain(data) {
       v.cols.map((c) => `<td class="${c.cls || ""}">${c.f(r)}</td>`).join("") + "</tr>"
     ).join("");
   }
+  // Only the tabs show the active view. (KPI cards are shortcuts — highlighting
+  // them caused confusion since several map to the same view.)
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.view === CURRENT_VIEW));
-  document.querySelectorAll(".kpi-card").forEach((k) => k.classList.toggle("active", k.dataset.view === CURRENT_VIEW));
 }
 
 /* ============================================================
@@ -607,6 +624,20 @@ function showTxModal(id) {
   if (!r) return;
   const tail = r._ret ? `out ${humanDuration(hoursBetween(r._out, r._ret))}`
     : (r.status === "Overdue" ? `<span class="overdue-by">${r._due ? humanDuration(hoursBetween(r._due, new Date())) : "—"} overdue</span>` : "still out");
+
+  // Full history for this tool — every check-out and return across all techs
+  const key = normTool(r.item);
+  const events = [];
+  ALL_RECORDS.forEach((x) => { if (x._out && normTool(x.item) === key) events.push({ t: "out", d: x._out, tech: x.technician, van: x.branch }); });
+  RETURN_EVENTS.forEach((x) => { if (x._ret && normTool(x.item) === key) events.push({ t: "in", d: x._ret, tech: x.technician, van: x.branch }); });
+  events.sort((a, b) => (a.d - b.d));
+  const histHtml = events.length ? events.map((e) =>
+    `<div class="hist-row"><span class="hist-dot hist-${e.t}"></span>` +
+    `<span class="hist-when">${fmt(e.d)}</span>` +
+    `<span class="hist-act">${e.t === "out" ? "Checked out" : "Returned"}</span>` +
+    `<span class="hist-who">${esc(e.tech)}${e.van ? " · Van " + esc(e.van) : ""}</span></div>`).join("")
+    : `<div class="m-empty">No history on record.</div>`;
+
   openModal(r.item || "Tool", `
     <div style="margin-bottom:16px">${statusPill(r.status)}</div>
     <dl class="m-def">
@@ -615,7 +646,9 @@ function showTxModal(id) {
       <dt>Checked Out</dt><dd>${fmt(r._out)}</dd>
       <dt>Returned</dt><dd>${r._ret ? fmt(r._ret) + (r._matchType === "fuzzy" ? ` <span class="auto-badge" title="The check-out and return names didn’t match exactly">~ auto-matched “${esc(r._matchedName)}”</span>` : "") : "—"}</dd>
       <dt>Time Out</dt><dd>${tail}</dd>
-    </dl>`);
+    </dl>
+    <div class="m-sub">Tool history (${events.length})</div>
+    <div class="hist-list">${histHtml}</div>`);
 }
 
 /* ============================================================

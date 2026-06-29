@@ -25,8 +25,8 @@ const CONFIG = {
   // Publish EACH tab separately as CSV:
   //   File > Share > Publish to web > (pick the tab) > CSV > Publish
   // Then paste each tab's link below.
-  GOOGLE_SHEET_CHECKOUTS_CSV_URL: "tool_checkout_log.csv",
-  GOOGLE_SHEET_RETURNS_CSV_URL:   "tool_returns_log.csv",
+  GOOGLE_SHEET_CHECKOUTS_CSV_URL: "https://docs.google.com/spreadsheets/d/1WG5gbEw9hqFzsdke-jibR9x7qwi3DD70GNkaycfX5Uk/gviz/tq?tqx=out:csv&sheet=Checkouts",
+  GOOGLE_SHEET_RETURNS_CSV_URL:   "https://docs.google.com/spreadsheets/d/1WG5gbEw9hqFzsdke-jibR9x7qwi3DD70GNkaycfX5Uk/gviz/tq?tqx=out:csv&sheet=Returns",
 
   // Auto-pull new form submissions on a timer (seconds). 0 = manual only.
   // When you paste the two published Google Sheet URLs above, this makes the
@@ -51,7 +51,14 @@ const CONFIG = {
 
   // ----- DATA CLEANUP -----
   // Tool names listed here are dropped entirely (test/junk rows). Case-insensitive.
-  EXCLUDE_TOOL_NAMES: ["TEST", "drill 2"],
+  EXCLUDE_TOOL_NAMES: ["TEST", "drill 2", "sdg"],
+
+  // Remove SPECIFIC junk/test lines without filtering a whole tool name.
+  // Matches on technician + item + date together (use date:"" for a blank/undated row),
+  // so it removes just that one row and leaves other rows of the same tool alone.
+  EXCLUDE_ROWS: [
+    { technician: "Mart Cole", item: "MC Hammer", date: "" },  // undated duplicate (test line)
+  ],
 
   // Consolidate spelling variants into one name. Key = the name to KEEP;
   // values = the variants to fold into it. Matching ignores case/spaces/punctuation,
