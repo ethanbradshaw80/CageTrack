@@ -1,104 +1,121 @@
-# CageTrack
+# CageTrack — Tool Check-Out Tracker
 
-A standalone internal dashboard for tracking technician cage activity:
-check-outs, returns, outstanding items, overdue items, and technician activity.
+An internal dashboard for tracking technician tool check-outs, returns, overdue
+items, and per-tool history. It reads a Google Sheet (fed by the Formstack
+check-out/return form) and updates itself automatically.
 
-This is the **MVP**. It runs entirely in the browser (HTML/CSS/JavaScript) —
-no login, no backend, no Excel/Graph sync. It starts on **mock data** so you can
-see it working, then switches to your **live Google Sheet** with one setting.
+**Status:** Live. Reading the team's Google Sheet, auto-refreshing every 60s.
+
+> Internal Peterman Brothers tool. Keep this repository private.
 
 ---
+
+## What it does
+
+- **KPI cards:** Check-outs today, returns today, currently out, overdue,
+  average time out, and the most active technician today.
+- **One focused table with tabs:** *Currently Out · Overdue · Recent Returns ·
+  All Check-Outs · Needs Review.*
+- **Click-through drill-downs:**
+  - Click a **technician** → their profile (vans, nickname, and a Holding /
+    Returns / All-history sub-tabbed list).
+  - Click a **row** → that transaction's details **plus the tool's full
+    history** — every check-out and return of that tool, across all techs, as a
+    timeline.
+- **Filters:** date range, technician, tool, and van #.
+- **Needs Review:** surfaces data problems (unmatched returns, unreadable
+  dates, fuzzy auto-matches) and lets you **manually link** an unmatched return
+  to the right open check-out.
+- **Auto-refresh** every 60s, plus a **print-to-PDF** layout (Ctrl+P).
+
+## How it works
+
+The Formstack form writes to a Google Sheet with two tabs — **Checkouts** and
+**Returns**. CageTrack reads both (as CSV, by tab name) and **matches each
+check-out to its return** to figure out what's actually still out.
+
+**Status for each tool:**
+- Check-out date, no matching return → **Checked Out**
+- …and past the allowed window → **Overdue** (window = `RETURN_WINDOW_HOURS`)
+- Matched to a return → **Returned**
+
+**Matching** runs in passes: exact name match first (oldest-first), then a
+conservative **fuzzy** pass for typos (same technician, return on/after the
+check-out, high name similarity). `TOOL_ALIASES` fold known spelling variants
+together, and anything the software can't safely match shows up in **Needs
+Review** for a human to link.
+
+## Running it locally
+
+The app loads several files and (in live mode) fetches the Google Sheet, so it
+needs to be **served** — opening `index.html` straight from disk won't work.
+
+- **Easiest (Windows):** double-click **`dev-server.ps1`**, then open
+  **http://localhost:5522**.
+- **VS Code:** open the folder and use the **Live Server** extension.
+- **Any static host** also works (the app is plain HTML/CSS/JS).
 
 ## Files
 
-| File          | What it does                                                        |
-|---------------|---------------------------------------------------------------------|
-| `index.html`  | The page layout (KPI cards, filters, tables).                       |
-| `styles.css`  | All styling. Clean, mobile-friendly.                                |
-| `config.js`   | **The only file you edit to go live.** Settings + column mapping.   |
-| `mockData.js` | Sample data so the dashboard works out of the box. Delete when live.|
-| `app.js`      | The logic: status rules, KPIs, tables, filters, CSV loading.        |
+| File | Purpose |
+|------|---------|
+| `index.html`     | Page layout (header, KPI cards, tabs, table, sidebar, modal) |
+| `styles.css`     | All styling, including the print/PDF layout |
+| `app.js`         | Data loading, check-out/return matching, status logic, rendering, drill-downs |
+| `config.js`      | **The only file you normally edit.** Sheet URLs, columns, cleanup rules |
+| `mockData.js`    | Built-in sample data for `DATA_SOURCE: "mock"` (offline demo) |
+| `dev-server.ps1` | Tiny local server for previewing (no Python/Node needed) |
+| `assets/`        | Logo |
 
----
+## Configuration (`config.js`)
 
-## Adding your Peterman logo
+| Setting | What it controls |
+|---------|------------------|
+| `DATA_SOURCE` | `"live"` (Google Sheet) or `"mock"` (built-in sample data) |
+| `GOOGLE_SHEET_CHECKOUTS_CSV_URL` / `..._RETURNS_CSV_URL` | The two tab feeds (see below) |
+| `AUTO_REFRESH_SECONDS` | How often to re-pull the sheet (`0` = manual only) |
+| `RETURN_WINDOW_HOURS` | How long a tool can be out before it's **Overdue** (default 7 days) |
+| `CHECKOUT_COLUMNS` / `RETURN_COLUMNS` | Maps the sheet's header names to the fields CageTrack expects |
+| `EXCLUDE_TOOL_NAMES` | Tool names to drop entirely (test/junk), e.g. `"TEST"` |
+| `EXCLUDE_ROWS` | Drop one **specific** line (tech + item + date) without filtering a whole tool name |
+| `TOOL_ALIASES` | Fold spelling variants into one name (e.g. `jack hammer` → `Jackhammer`) |
+| `MATCHING` | Fuzzy matching on/off and strictness (`THRESHOLD`, 0–1) |
+| `BRAND` | Logo, company/product name, tagline |
 
-Open `config.js` and find the `BRAND` block at the top. Paste your logo into
-`logoUrl` — either a web link or a base64 data string:
+## Connecting a sheet
 
-```js
-BRAND: {
-  logoUrl: "https://your-site.com/peterman-logo.png",   // or "data:image/png;base64,...."
-  companyName: "Peterman Brothers",
-  productName: "CageTrack",
-  tagline: "Cage Activity Dashboard",
-}
+CageTrack reads each tab as CSV by name:
+
+```
+https://docs.google.com/spreadsheets/d/<SHEET-ID>/gviz/tq?tqx=out:csv&sheet=<TabName>
 ```
 
-Leave `logoUrl: ""` to show the clean text wordmark instead. If the image link
-is broken, the dashboard automatically falls back to the wordmark.
+1. The sheet must be readable — **Share → Anyone with the link → Viewer.**
+2. Put the `<SHEET-ID>` (from the normal `/spreadsheets/d/<ID>/edit` URL) and the
+   exact tab names into the two `GOOGLE_SHEET_..._CSV_URL` values in `config.js`.
+3. Make sure each tab's header names match `CHECKOUT_COLUMNS` / `RETURN_COLUMNS`
+   (currently `Name`, `Van #`, `Tool Name`, and `Date Checked Out` / `Date
+   Returned`).
 
-## How to run it
+The dashboard fetches with cache-busting, so new form submissions appear within
+the refresh interval.
 
-Because the app loads several `.js` files, open it through a small local server
-(opening `index.html` directly as a file can be blocked by the browser).
+## Cleaning up messy data
 
-Any of these work — pick the easiest:
-- Open the folder in VS Code and use the **Live Server** extension.
-- If you ever install Python: `python -m http.server` in this folder, then visit the address it prints.
-- Host the folder on any static host (Netlify, GitHub Pages, internal web server).
+Form data is hand-typed, so CageTrack has a few knobs (all in `config.js`):
 
----
+- **`EXCLUDE_TOOL_NAMES`** — drop junk by name (e.g. `TEST`).
+- **`EXCLUDE_ROWS`** — drop one specific line (matches tech + item + date; use
+  `date: ""` for an undated row) without touching other rows of that tool.
+- **`TOOL_ALIASES`** — make `"Press jaw"` and `"Press Jaws"` the same tool.
+- **`MATCHING.FUZZY`** — auto-catch typos when pairing check-outs to returns.
+- **Needs Review → "Link"** — when the software can't match a return, open it and
+  link it to the right check-out by hand (the link survives refreshes).
 
-## Status logic (how an item's status is decided)
+## Notes
 
-For each row in the sheet:
-
-1. Check-out time exists, return time is **blank** → **Checked Out**
-2. Return time **exists** → **Returned**
-3. Check-out exists, return blank, **and** more than `RETURN_WINDOW_HOURS` have
-   passed → **Overdue**
-
-You set the allowed window in `config.js` (`RETURN_WINDOW_HOURS`, default **48**).
-
----
-
-## Connecting your live Google Sheet
-
-The simplest method (no API key, no developer account):
-
-1. In Google Sheets: **File → Share → Publish to web**.
-2. Choose the correct **tab**, set the format to **CSV**, click **Publish**.
-3. Copy the link it gives you.
-4. In `config.js`:
-   - Set `DATA_SOURCE: "live"`
-   - Paste the link into `GOOGLE_SHEET_CSV_URL`
-   - Under `COLUMNS`, make the right-hand values match your **exact** sheet
-     header names (e.g. if your header is `Tech Name`, set `technician: "Tech Name"`).
-5. Refresh the page. The tag in the top bar will read **Live sheet**.
-
-### Your sheet needs (at minimum) these columns
-- A **Technician** name
-- A **Part/Tool** name
-- A **Checkout Timestamp** (date+time)
-- A **Return Timestamp** (blank until the item comes back)
-- A **Branch** (optional but powers the Branch filter)
-- A **Transaction ID** (optional)
-
-> Timestamps should be real date/time values (e.g. `6/25/2026 14:30`). The app
-> reads them with the browser's date parser, so a standard date+time format is safest.
-
----
-
-## What to verify before relying on it
-
-- [ ] Your real column headers are mapped correctly in `config.js`.
-- [ ] Timestamps in the sheet parse into real dates (overdue math depends on this).
-- [ ] `RETURN_WINDOW_HOURS` matches your actual policy.
-- [ ] "Today" uses **your computer's local time** — check the KPIs reflect your timezone.
-
----
-
-## Not included yet (by design)
-Login, user accounts, Microsoft Graph, Excel sync, write-back to the sheet,
-notifications, and scheduled automation. These can come after the MVP is in use.
+- The dashboard reflects the sheet exactly. If the **Returns** data shows tools
+  coming back the same day they went out, the dashboard will (correctly) show
+  nothing outstanding — that's a data-entry pattern, not a bug.
+- Manual links made in Needs Review are session-only conveniences; the durable
+  fixes are cleaner names in the form/sheet (or an alias/exclude in `config.js`).

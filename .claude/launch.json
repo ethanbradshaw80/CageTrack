@@ -3,9 +3,9 @@
   "configurations": [
     {
       "name": "cagetrack",
-      "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "5520"],
-      "port": 5520
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-ExecutionPolicy", "Bypass", "-NoProfile", "-File", "dev-server.ps1"],
+      "port": 5522
     }
   ]
 }
