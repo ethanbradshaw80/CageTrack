@@ -96,10 +96,19 @@
 
         <div class="panel table-panel">
           <div class="panel-head">
-            <h2 id="mainTitle">Currently Out</h2>
-            <span class="count-badge" id="mainCount">0</span>
+            <div class="ph-left">
+              <h2 id="mainTitle">Currently Out</h2>
+              <span class="count-badge" id="mainCount">0</span>
+            </div>
+            <div class="ph-right">
+              <div class="search-box">
+                <svg viewBox="0 0 24 24" class="ic"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+                <input type="search" id="tableSearch" placeholder="Search this view…" autocomplete="off" />
+              </div>
+              <button id="exportBtn" class="btn btn-ghost btn-sm" title="Download the current view as a CSV">Export CSV</button>
+            </div>
           </div>
-          <p class="hint">Tip: click a row for full details, or a technician's name for their summary.</p>
+          <p class="hint">Tip: click a row for details, a technician's name for their summary, or a column header to sort.</p>
           <div class="table-wrap" id="mainTableWrap">
             <table id="tblMain"><thead></thead><tbody></tbody></table>
           </div>

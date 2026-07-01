@@ -138,6 +138,24 @@ svg.ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-wid
 .muted-sub { font-size: 11px; color: var(--muted); }
 .hint { margin: -4px 0 14px; font-size: 12px; color: var(--muted); }
 
+/* table panel header: title/count left, search + export right */
+.ph-left { display: flex; align-items: center; gap: 10px; }
+.ph-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.search-box { position: relative; display: flex; align-items: center; }
+.search-box .ic { position: absolute; left: 10px; color: var(--muted); pointer-events: none; }
+.search-box input { padding: 8px 12px 8px 32px; border: 1px solid var(--line); border-radius: 10px;
+  font-size: 13px; width: 220px; max-width: 46vw; background: #fff; color: var(--ink); font-family: inherit; }
+.search-box input:focus { outline: none; border-color: var(--navy-600); box-shadow: var(--ring); }
+
+/* sortable column headers */
+th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+th.sortable:hover { color: var(--navy-800); }
+
+/* overdue rows stand out in the table */
+tbody tr.row-overdue td:first-child { box-shadow: inset 3px 0 0 var(--red); }
+tbody tr.row-overdue { background: #fdf3f3; }
+tbody tr.row-overdue:hover { background: #fbe9e9; }
+
 /* tabs */
 .tabs { display: inline-flex; gap: 4px; background: #e8edf4; padding: 5px; border-radius: 12px; margin-bottom: 16px; flex-wrap: wrap; }
 .tab { border: 0; background: transparent; padding: 9px 16px; border-radius: 9px; font-size: 13px; font-weight: 700;

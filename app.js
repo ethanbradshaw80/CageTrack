@@ -13,6 +13,11 @@ let SESSION_LINKS = [];   // manual links made in the Needs Review screen
 let CURRENT_VIEW = "out";
 let _idc = 0;
 let _autoTimer = null;
+let SEARCH_TERM = "";                    // free-text search within the current table view
+let SORT = { key: null, dir: 1 };        // active column sort (null = view's default order)
+let LAST_DATA = { checkouts: [], returns: [] };  // last filtered data, for cheap re-render on search/sort
+let CURRENT_ROWS = [];                   // rows currently shown (for CSV export)
+let CURRENT_COLS = [];                   // columns currently shown (for CSV export)
 
 /* ---------- Helpers ---------- */
 const $ = (id) => document.getElementById(id);
@@ -394,18 +399,40 @@ function statusPill(status) {
   return `<span class="pill ${map[status] || ""}">${esc(status)}</span>`;
 }
 
+// Each column: l=label, f=cell HTML, plain=text (for CSV/search), sortVal=comparable value
 const COL = {
-  item:   { l: "Tool", cls: "col-item", f: (r) => esc(r.item) || "—" },
-  tech:   { l: "Technician", f: (r) => `<button class="tech-link" data-tech="${esc(r.technician)}">${esc(r.technician)}</button>` },
-  van:    { l: "Van #", f: (r) => esc(r.branch) || "—" },
-  out:    { l: "Checked Out", f: (r) => fmt(r._out) },
-  ret:    { l: "Returned", f: (r) => fmt(r._ret) },
-  daysOut:{ l: "Days Out", f: (r) => (r._out ? humanDuration(hoursBetween(r._out, new Date())) : "—") },
-  over:   { l: "Overdue By", f: (r) => `<span class="overdue-by">${r._due ? humanDuration(hoursBetween(r._due, new Date())) : "—"}</span>` },
-  status: { l: "Status", f: (r) => statusPill(r.status) + autoMark(r) },
-  reviewDate: { l: "Date", f: (r) => fmt(r._date) },
-  issue: { l: "Needs Review", f: (r) => `<span class="issue-chip issue-${r._issueType}">${esc(r._issue)}</span>` },
+  item:   { key: "item", l: "Tool", cls: "col-item", f: (r) => esc(r.item) || "—",
+            plain: (r) => r.item || "", sortVal: (r) => (r.item || "").toLowerCase() },
+  tech:   { key: "tech", l: "Technician", f: (r) => `<button class="tech-link" data-tech="${esc(r.technician)}">${esc(r.technician)}</button>`,
+            plain: (r) => r.technician || "", sortVal: (r) => (r.technician || "").toLowerCase() },
+  van:    { key: "van", l: "Van #", f: (r) => esc(r.branch) || "—",
+            plain: (r) => r.branch || "", sortVal: (r) => r.branch || "" },
+  out:    { key: "out", l: "Checked Out", f: (r) => fmt(r._out),
+            plain: (r) => fmt(r._out), sortVal: (r) => (r._out ? r._out.getTime() : 0) },
+  ret:    { key: "ret", l: "Returned", f: (r) => fmt(r._ret),
+            plain: (r) => fmt(r._ret), sortVal: (r) => (r._ret ? r._ret.getTime() : 0) },
+  daysOut:{ key: "daysOut", l: "Days Out", f: (r) => (r._out ? humanDuration(hoursBetween(r._out, new Date())) : "—"),
+            plain: (r) => (r._out ? humanDuration(hoursBetween(r._out, new Date())) : ""), sortVal: (r) => (r._out ? hoursBetween(r._out, new Date()) : -1) },
+  over:   { key: "over", l: "Overdue By", f: (r) => `<span class="overdue-by">${r._due ? humanDuration(hoursBetween(r._due, new Date())) : "—"}</span>`,
+            plain: (r) => (r._due ? humanDuration(hoursBetween(r._due, new Date())) : ""), sortVal: (r) => (r._due ? hoursBetween(r._due, new Date()) : -1) },
+  status: { key: "status", l: "Status", f: (r) => statusPill(r.status) + autoMark(r),
+            plain: (r) => r.status || "", sortVal: (r) => r.status || "" },
+  reviewDate: { key: "reviewDate", l: "Date", f: (r) => fmt(r._date),
+            plain: (r) => fmt(r._date), sortVal: (r) => (r._date ? r._date.getTime() : 0) },
+  issue: { key: "issue", l: "Needs Review", f: (r) => `<span class="issue-chip issue-${r._issueType}">${esc(r._issue)}</span>`,
+            plain: (r) => r._issue || "", sortVal: (r) => r._issue || "" },
 };
+
+// Compare helper: numbers numerically, everything else with natural (numeric-aware) collation.
+function cmpVals(a, b) {
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+}
+// Concatenated searchable text for a row.
+function rowSearchText(r) {
+  return [r.item, r.technician, r.branch, fmt(r._out), fmt(r._ret), fmt(r._date), r.status, r._issue]
+    .filter(Boolean).join(" ").toLowerCase();
+}
 
 function autoMark(r) {
   if (r._matchType === "fuzzy") return ` <span class="auto-dot" title="Auto-matched to return “${esc(r._matchedName)}”">~</span>`;
@@ -472,25 +499,62 @@ function buildReviewRows() {
 
 function renderMain(data) {
   const v = VIEWS[CURRENT_VIEW] || VIEWS.out;
-  const rows = v.rows(data);
+  let rows = v.rows(data);
+
+  // free-text search within the current view
+  const term = SEARCH_TERM.trim().toLowerCase();
+  if (term) rows = rows.filter((r) => rowSearchText(r).includes(term));
+
+  // column sort (overrides the view's default order)
+  if (SORT.key) {
+    const col = v.cols.find((c) => c.key === SORT.key);
+    if (col && col.sortVal) rows = rows.slice().sort((a, b) => SORT.dir * cmpVals(col.sortVal(a), col.sortVal(b)));
+  }
+
   $("mainTitle").textContent = v.title;
   $("mainCount").textContent = rows.length;
+  CURRENT_ROWS = rows;
+  CURRENT_COLS = v.cols;
 
   const thead = $("tblMain").querySelector("thead");
   const tbody = $("tblMain").querySelector("tbody");
-  thead.innerHTML = "<tr>" + v.cols.map((c) => `<th>${c.l}</th>`).join("") + "</tr>";
+  thead.innerHTML = "<tr>" + v.cols.map((c) => {
+    const arrow = SORT.key === c.key ? (SORT.dir === 1 ? " ▲" : " ▼") : "";
+    return c.sortVal
+      ? `<th class="sortable" data-sortkey="${c.key}">${c.l}${arrow}</th>`
+      : `<th>${c.l}</th>`;
+  }).join("") + "</tr>";
 
   if (!rows.length) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="${v.cols.length}">${v.empty}</td></tr>`;
+    const msg = term ? `No matches for “${esc(SEARCH_TERM.trim())}”.` : v.empty;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="${v.cols.length}">${msg}</td></tr>`;
   } else {
     tbody.innerHTML = rows.map((r) =>
-      `<tr data-txid="${esc(r.id)}">` +
+      `<tr data-txid="${esc(r.id)}"${r.status === "Overdue" ? ' class="row-overdue"' : ""}>` +
       v.cols.map((c) => `<td class="${c.cls || ""}">${c.f(r)}</td>`).join("") + "</tr>"
     ).join("");
   }
   // Only the tabs show the active view. (KPI cards are shortcuts — highlighting
   // them caused confusion since several map to the same view.)
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.view === CURRENT_VIEW));
+}
+
+/* Download the current view (after search/sort) as CSV. */
+function exportCurrentView() {
+  const cols = CURRENT_COLS, rows = CURRENT_ROWS;
+  if (!cols || !cols.length) return;
+  const cell = (s) => { s = String(s == null ? "" : s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const csv = [cols.map((c) => cell(c.l)).join(",")]
+    .concat(rows.map((r) => cols.map((c) => cell(c.plain ? c.plain(r) : "")).join(",")))
+    .join("\r\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }); // BOM so Excel reads UTF-8
+  const url = URL.createObjectURL(blob);
+  const name = ((VIEWS[CURRENT_VIEW] || {}).title || "view").replace(/\s+/g, "-").toLowerCase();
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `cagetrack-${name}-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
 }
 
 /* ============================================================
@@ -657,8 +721,9 @@ function showTxModal(id) {
 function renderAll() {
   const checkouts = applyFilters(ALL_RECORDS, "_out");
   const returns = applyFilters(RETURN_EVENTS, "_ret");
+  LAST_DATA = { checkouts, returns };
   renderKPIs(checkouts, returns);
-  renderMain({ checkouts, returns });
+  renderMain(LAST_DATA);
   renderTopTechList(checkouts);
   $("rowCount").textContent = `${checkouts.length} check-outs · ${returns.length} returns`;
 
@@ -678,10 +743,12 @@ function renderAll() {
     rt.classList.toggle("has-issues", reviewCount > 0);
   }
 }
-function setView(view) { if (VIEWS[view]) { CURRENT_VIEW = view; renderAll(); } }
+function setView(view) { if (VIEWS[view]) { CURRENT_VIEW = view; SORT = { key: null, dir: 1 }; renderAll(); } }
 function resetAll() {
   ["fromDate", "toDate", "fTech", "fItem", "fBranch"].forEach((id) => ($(id).value = ""));
-  CURRENT_VIEW = "out"; closeModal(); renderAll();
+  CURRENT_VIEW = "out"; SEARCH_TERM = ""; SORT = { key: null, dir: 1 };
+  if ($("tableSearch")) $("tableSearch").value = "";
+  closeModal(); renderAll();
 }
 
 /* ---------- Escape HTML ---------- */
@@ -782,6 +849,21 @@ function init() {
     if (CURRENT_VIEW === "review" && RETURN_BY_ID[id] && !RECORD_BY_ID[id]) openResolveModal(id);
     else showTxModal(id);
   });
+
+  // Click a column header to sort (toggle direction on repeat click)
+  $("tblMain").querySelector("thead").addEventListener("click", (e) => {
+    const th = e.target.closest("th.sortable");
+    if (!th) return;
+    const key = th.dataset.sortkey;
+    if (SORT.key === key) SORT.dir = -SORT.dir; else { SORT.key = key; SORT.dir = 1; }
+    renderMain(LAST_DATA);
+  });
+
+  // Search box — filters the current view live
+  $("tableSearch").addEventListener("input", (e) => { SEARCH_TERM = e.target.value; renderMain(LAST_DATA); });
+
+  // Export current view to CSV
+  $("exportBtn").addEventListener("click", exportCurrentView);
   $("topTechList").addEventListener("click", (e) => { const row = e.target.closest(".toplist-row"); if (row) showTechModal(row.dataset.tech); });
   $("modalBody").addEventListener("click", (e) => {
     const linkBtn = e.target.closest("[data-link-co]");
