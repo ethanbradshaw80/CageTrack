@@ -399,6 +399,14 @@ function statusPill(status) {
   return `<span class="pill ${map[status] || ""}">${esc(status)}</span>`;
 }
 
+// Heat tier for how long something has been out, relative to the overdue window.
+function heatClass(hrs) {
+  const w = CONFIG.RETURN_WINDOW_HOURS || 168;
+  if (hrs >= w) return "heat-hot";        // overdue
+  if (hrs >= w * 0.5) return "heat-warn"; // getting there
+  return "heat-ok";                        // fresh
+}
+
 // Each column: l=label, f=cell HTML, plain=text (for CSV/search), sortVal=comparable value
 const COL = {
   item:   { key: "item", l: "Tool", cls: "col-item", f: (r) => esc(r.item) || "—",
@@ -411,7 +419,7 @@ const COL = {
             plain: (r) => fmt(r._out), sortVal: (r) => (r._out ? r._out.getTime() : 0) },
   ret:    { key: "ret", l: "Returned", f: (r) => fmt(r._ret),
             plain: (r) => fmt(r._ret), sortVal: (r) => (r._ret ? r._ret.getTime() : 0) },
-  daysOut:{ key: "daysOut", l: "Days Out", f: (r) => (r._out ? humanDuration(hoursBetween(r._out, new Date())) : "—"),
+  daysOut:{ key: "daysOut", l: "Days Out", f: (r) => (r._out ? `<span class="heat ${heatClass(hoursBetween(r._out, new Date()))}">${humanDuration(hoursBetween(r._out, new Date()))}</span>` : "—"),
             plain: (r) => (r._out ? humanDuration(hoursBetween(r._out, new Date())) : ""), sortVal: (r) => (r._out ? hoursBetween(r._out, new Date()) : -1) },
   over:   { key: "over", l: "Overdue By", f: (r) => `<span class="overdue-by">${r._due ? humanDuration(hoursBetween(r._due, new Date())) : "—"}</span>`,
             plain: (r) => (r._due ? humanDuration(hoursBetween(r._due, new Date())) : ""), sortVal: (r) => (r._due ? hoursBetween(r._due, new Date()) : -1) },
@@ -578,6 +586,49 @@ function renderTopTechList(checkouts) {
   }).join("");
 }
 
+// Overdue tools grouped by technician — shown only when there are overdue items.
+function renderOverdueByTech(checkouts) {
+  const panel = $("overduePanel"), el = $("overdueByTech");
+  if (!panel || !el) return;
+  const counts = {};
+  checkouts.filter((r) => r.status === "Overdue").forEach((r) => { counts[r.technician] = (counts[r.technician] || 0) + 1; });
+  const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  if (!ranked.length) { panel.hidden = true; el.innerHTML = ""; return; }
+  panel.hidden = false;
+  el.innerHTML = ranked.map(([name, n]) =>
+    `<div class="toplist-row od" data-tech="${esc(name)}">
+      <span class="toplist-name">${esc(name)} ${vanMini(getTechProfile(name).van)}</span>
+      <span class="toplist-count od-count">${n}</span>
+    </div>`).join("");
+}
+
+/* ---------- Saved searches (persisted in the browser) ---------- */
+const SS_KEY = "cagetrack.savedSearches";
+function getSavedSearches() { try { return JSON.parse(localStorage.getItem(SS_KEY) || "[]"); } catch (e) { return []; } }
+function setSavedSearches(arr) { try { localStorage.setItem(SS_KEY, JSON.stringify(arr)); } catch (e) {} }
+function renderSavedSearches() {
+  const el = $("savedSearches"); if (!el) return;
+  const arr = getSavedSearches();
+  el.innerHTML = arr.length
+    ? `<span class="ss-label">Saved:</span>` + arr.map((s) =>
+        `<span class="ss-chip" data-search="${esc(s)}">${esc(s)}<button class="ss-x" data-remove="${esc(s)}" title="Remove" aria-label="Remove">×</button></span>`).join("")
+    : "";
+}
+function saveCurrentSearch() {
+  const term = SEARCH_TERM.trim(); if (!term) return;
+  const arr = getSavedSearches();
+  if (!arr.includes(term)) { arr.push(term); setSavedSearches(arr); renderSavedSearches(); }
+}
+function applySavedSearch(term) {
+  SEARCH_TERM = term;
+  if ($("tableSearch")) $("tableSearch").value = term;
+  renderMain(LAST_DATA);
+}
+function removeSavedSearch(term) {
+  setSavedSearches(getSavedSearches().filter((s) => s !== term));
+  renderSavedSearches();
+}
+
 /* ============================================================
    TECH PROFILE (van tags — derived from the sheet)
    ============================================================ */
@@ -725,6 +776,7 @@ function renderAll() {
   renderKPIs(checkouts, returns);
   renderMain(LAST_DATA);
   renderTopTechList(checkouts);
+  renderOverdueByTech(checkouts);
   $("rowCount").textContent = `${checkouts.length} check-outs · ${returns.length} returns`;
 
   // Data-health readout (global, not filtered)
@@ -864,6 +916,21 @@ function init() {
 
   // Export current view to CSV
   $("exportBtn").addEventListener("click", exportCurrentView);
+
+  // Saved searches
+  renderSavedSearches();
+  $("saveSearchBtn").addEventListener("click", saveCurrentSearch);
+  $("savedSearches").addEventListener("click", (e) => {
+    const x = e.target.closest(".ss-x");
+    if (x) { removeSavedSearch(x.dataset.remove); return; }
+    const chip = e.target.closest(".ss-chip");
+    if (chip) applySavedSearch(chip.dataset.search);
+  });
+
+  // Overdue-by-technician list → open that tech's profile
+  $("overdueByTech").addEventListener("click", (e) => {
+    const row = e.target.closest(".toplist-row"); if (row) showTechModal(row.dataset.tech);
+  });
   $("topTechList").addEventListener("click", (e) => { const row = e.target.closest(".toplist-row"); if (row) showTechModal(row.dataset.tech); });
   $("modalBody").addEventListener("click", (e) => {
     const linkBtn = e.target.closest("[data-link-co]");

@@ -105,10 +105,12 @@
                 <svg viewBox="0 0 24 24" class="ic"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
                 <input type="search" id="tableSearch" placeholder="Search this view…" autocomplete="off" />
               </div>
+              <button id="saveSearchBtn" class="btn btn-ghost btn-sm" title="Save the current search">★ Save</button>
               <button id="exportBtn" class="btn btn-ghost btn-sm" title="Download the current view as a CSV">Export CSV</button>
             </div>
           </div>
           <p class="hint">Tip: click a row for details, a technician's name for their summary, or a column header to sort.</p>
+          <div id="savedSearches" class="saved-searches"></div>
           <div class="table-wrap" id="mainTableWrap">
             <table id="tblMain"><thead></thead><tbody></tbody></table>
           </div>
@@ -150,6 +152,14 @@
             <span class="muted-sub">tap a name</span>
           </div>
           <div id="topTechList" class="toplist"></div>
+        </section>
+
+        <section class="panel overdue-panel" id="overduePanel" hidden>
+          <div class="panel-head">
+            <h2>Overdue by Tech</h2>
+            <span class="muted-sub">needs follow-up</span>
+          </div>
+          <div id="overdueByTech" class="toplist"></div>
         </section>
       </aside>
     </div>

@@ -156,6 +156,27 @@ tbody tr.row-overdue td:first-child { box-shadow: inset 3px 0 0 var(--red); }
 tbody tr.row-overdue { background: #fdf3f3; }
 tbody tr.row-overdue:hover { background: #fbe9e9; }
 
+/* days-out heat coloring */
+.heat { font-weight: 700; font-size: 12px; padding: 2px 9px; border-radius: 999px; display: inline-block; }
+.heat-ok   { background: #e7f6ec; color: #15803d; }
+.heat-warn { background: #fff5d6; color: #a16207; }
+.heat-hot  { background: #fee2e2; color: #b91c1c; }
+
+/* saved searches */
+.saved-searches { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: -6px 0 12px; }
+.saved-searches:empty { display: none; }
+.ss-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+.ss-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600;
+  background: #eef2fb; color: var(--navy-700); padding: 3px 6px 3px 10px; border-radius: 999px; cursor: pointer; }
+.ss-chip:hover { background: #dbe5fa; }
+.ss-x { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; }
+.ss-x:hover { color: var(--red-600); }
+
+/* overdue-by-tech sidebar rows */
+.toplist-row.od { grid-template-columns: 1fr auto; border-color: #f6cccc; background: #fdf3f3; }
+.toplist-row.od:hover { background: #fbe9e9; }
+.od-count { color: var(--red-600); }
+
 /* tabs */
 .tabs { display: inline-flex; gap: 4px; background: #e8edf4; padding: 5px; border-radius: 12px; margin-bottom: 16px; flex-wrap: wrap; }
 .tab { border: 0; background: transparent; padding: 9px 16px; border-radius: 9px; font-size: 13px; font-weight: 700;
