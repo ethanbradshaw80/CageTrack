@@ -831,6 +831,26 @@ function renderBrand() {
   }
 }
 
+/* ---------- Theme (light / dark) ---------- */
+function applyTheme(t) {
+  const root = document.documentElement;
+  root.classList.add("theme-switching");     // freeze transitions so var()-based backgrounds swap instantly
+  root.dataset.theme = t;
+  void root.offsetWidth;                       // commit the new colors with transitions off
+  requestAnimationFrame(() => root.classList.remove("theme-switching"));
+  const btn = $("themeToggle");
+  if (btn) { btn.setAttribute("aria-checked", String(t === "dark")); btn.title = t === "dark" ? "Switch to light mode" : "Switch to dark mode"; }
+  try { localStorage.setItem("cagetrack.theme", t); } catch (e) {}
+}
+function initTheme() {
+  let t = document.documentElement.dataset.theme;
+  if (!t) { try { t = localStorage.getItem("cagetrack.theme"); } catch (e) {} }
+  applyTheme(t || "light");
+}
+function toggleTheme() {
+  applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+}
+
 /* ---------- Clock ---------- */
 function startClock() {
   const tick = () => {
@@ -871,8 +891,10 @@ function startAutoRefresh() {
 }
 
 function init() {
+  initTheme();
   renderBrand();
   startClock();
+  $("themeToggle").addEventListener("click", toggleTheme);
   const tag = $("dataSourceTag");
   if (CONFIG.DATA_SOURCE === "live") { $("dataSourceText").textContent = "Live sheets"; tag.className = "tag tag-live"; }
   else { $("dataSourceText").textContent = "Mock data"; tag.className = "tag tag-mock"; }

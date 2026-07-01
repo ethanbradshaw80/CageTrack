@@ -26,12 +26,20 @@
 
   --radius: 16px;
   --radius-sm: 10px;
-  --shadow: 0 1px 2px rgba(10,31,68,.05), 0 6px 20px rgba(10,31,68,.06);
-  --shadow-lg: 0 12px 40px rgba(10,31,68,.16);
-  --ring: 0 0 0 3px rgba(30,74,143,.18);
+  /* softer, layered shadows for a more premium, less "heavy card" feel */
+  --shadow: 0 1px 2px rgba(10,31,68,.04), 0 3px 10px rgba(10,31,68,.045), 0 10px 24px rgba(10,31,68,.05);
+  --shadow-lg: 0 10px 34px rgba(10,31,68,.13);
+  --ring: 0 0 0 3px rgba(30,74,143,.16);
 }
 
 * { box-sizing: border-box; }
+
+/* polish: tabular (fixed-width) figures so numbers & dates line up cleanly */
+.kpi-value, .clock-time, .count-badge, th, td, .toplist-count, .heat,
+.m-stat .v, .overdue-by, .kpi-value-sm {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
 html, body { height: 100%; }
 body {
   margin: 0;
@@ -360,3 +368,158 @@ td.col-item { font-weight: 700; color: var(--ink); }
   .kpi-grid { gap: 10px; }
   tbody tr:hover { background: transparent; }
 }
+
+/* ============================================================
+   Micro-polish — subtle refinements (no layout changes)
+   ============================================================ */
+/* accessible, tidy keyboard focus rings */
+.btn:focus-visible, .tab:focus-visible, .kpi-card:focus-visible,
+.brand:focus-visible, .tech-link:focus-visible, .ss-chip:focus-visible {
+  outline: none; box-shadow: var(--ring);
+}
+
+/* smooth, consistent hover feedback across interactive elements */
+.tab, .btn, .kpi-card, .tech-link, .toplist-row, tbody tr, .ss-chip,
+.count-badge, .search-box input, th.sortable {
+  transition: background .14s ease, color .14s ease, border-color .14s ease,
+              box-shadow .14s ease, transform .1s ease;
+}
+
+/* refined slim scrollbars */
+.table-wrap::-webkit-scrollbar, .modal-body::-webkit-scrollbar,
+.hist-list::-webkit-scrollbar, .m-list::-webkit-scrollbar,
+.filter-panel::-webkit-scrollbar { width: 10px; height: 10px; }
+.table-wrap::-webkit-scrollbar-thumb, .modal-body::-webkit-scrollbar-thumb,
+.hist-list::-webkit-scrollbar-thumb, .m-list::-webkit-scrollbar-thumb {
+  background: #cbd5e6; border-radius: 999px; border: 2px solid transparent; background-clip: padding-box;
+}
+.table-wrap::-webkit-scrollbar-thumb:hover { background: #b3c1d8; background-clip: padding-box; }
+.table-wrap::-webkit-scrollbar-track, .modal-body::-webkit-scrollbar-track { background: transparent; }
+
+/* ============================================================
+   THEME TOGGLE SWITCH
+   ============================================================ */
+.theme-switch { position: relative; width: 56px; height: 28px; border: 0; border-radius: 999px;
+  background: rgba(255,255,255,.16); cursor: pointer; padding: 0; flex: none; }
+.theme-switch:hover { background: rgba(255,255,255,.26); }
+.ts-knob { position: absolute; top: 2px; left: 2px; width: 24px; height: 24px; border-radius: 50%;
+  background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35); display: grid; place-items: center;
+  transition: transform .22s ease, background .22s ease; }
+.ts-knob svg { position: absolute; width: 14px; height: 14px; fill: none; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round; transition: opacity .18s ease; }
+.ts-sun { stroke: #f59e0b; }
+.ts-moon { stroke: #cdd8ef; }
+html[data-theme="dark"] .ts-knob { transform: translateX(28px); background: #1e2b46; }
+html[data-theme="dark"] .ts-sun { opacity: 0; }
+html:not([data-theme="dark"]) .ts-moon { opacity: 0; }
+
+/* colored glow under KPI icons — adds pop in both themes */
+.kpi-card[data-accent="blue"] .kpi-icon   { box-shadow: 0 8px 18px -6px var(--blue); }
+.kpi-card[data-accent="green"] .kpi-icon  { box-shadow: 0 8px 18px -6px var(--green); }
+.kpi-card[data-accent="navy"] .kpi-icon   { box-shadow: 0 8px 18px -6px var(--navy-700); }
+.kpi-card[data-accent="red"] .kpi-icon    { box-shadow: 0 8px 18px -6px var(--red); }
+.kpi-card[data-accent="amber"] .kpi-icon  { box-shadow: 0 8px 18px -6px var(--amber); }
+.kpi-card[data-accent="purple"] .kpi-icon { box-shadow: 0 8px 18px -6px var(--purple); }
+
+/* Freeze ALL transitions during a theme swap so var()-based backgrounds
+   change instantly instead of getting stuck mid-transition. Hover transitions
+   are unaffected during normal use. */
+html.theme-switching *, html.theme-switching *::before, html.theme-switching *::after {
+  transition: none !important;
+}
+
+/* ============================================================
+   DARK MODE — every surface/chip gets a real dark treatment
+   ============================================================ */
+html[data-theme="dark"] {
+  color-scheme: dark;                 /* native controls, date pickers & scrollbars go dark */
+  --page: #0b1220;
+  --panel: #131d31;
+  --ink: #e7edf7;
+  --muted: #93a3bd;
+  --line: rgba(255,255,255,.09);
+  --red-soft: rgba(209,43,43,.16);
+  --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.35);
+  --shadow-lg: 0 14px 44px rgba(0,0,0,.55);
+  --ring: 0 0 0 3px rgba(96,165,250,.32);
+}
+html[data-theme="dark"] body {
+  background: radial-gradient(1100px 500px at 100% -10%, rgba(37,74,143,.18) 0%, transparent 60%), var(--page);
+}
+/* headings that used dark-navy ink */
+html[data-theme="dark"] .panel-head h2 { color: #d3def3; }
+html[data-theme="dark"] .panel-head h2 .ic { color: #7aa2e8; }
+html[data-theme="dark"] .m-sub { color: #cddaf0; }
+html[data-theme="dark"] .overdue-by { color: #ff9d9d; }
+/* buttons / inputs */
+html[data-theme="dark"] .btn-ghost { background: #1b2740; color: var(--ink); border-color: var(--line); }
+html[data-theme="dark"] .btn-ghost:hover { background: #223050; border-color: rgba(255,255,255,.16); }
+html[data-theme="dark"] .filter-field input, html[data-theme="dark"] .filter-field select,
+html[data-theme="dark"] .search-box input { background: #0f1a2c; color: var(--ink); border-color: var(--line); }
+/* KPI danger card */
+html[data-theme="dark"] .kpi-danger { background: linear-gradient(180deg, rgba(209,43,43,.2), var(--panel)); border-color: rgba(209,43,43,.4); }
+html[data-theme="dark"] .kpi-danger .kpi-value { color: #ff9d9d; }
+/* tabs */
+html[data-theme="dark"] .tabs { background: #0f1a2c; }
+html[data-theme="dark"] .tab { color: var(--muted); }
+html[data-theme="dark"] .tab:hover { color: var(--ink); }
+html[data-theme="dark"] .tab.active { background: #21304e; color: #fff; }
+/* table */
+html[data-theme="dark"] th { background: #0f1a2c; color: var(--muted); border-color: var(--line); }
+html[data-theme="dark"] td { border-color: rgba(255,255,255,.06); }
+html[data-theme="dark"] tbody tr:hover { background: rgba(96,165,250,.08); }
+html[data-theme="dark"] .count-badge { background: #1b2740; color: #cbd7ef; }
+/* status pills */
+html[data-theme="dark"] .pill-out { background: rgba(37,99,235,.22); color: #9cc0ff; }
+html[data-theme="dark"] .pill-overdue { background: rgba(209,43,43,.24); color: #ff9d9d; }
+html[data-theme="dark"] .pill-returned { background: rgba(22,163,74,.22); color: #7fe3a0; }
+html[data-theme="dark"] .pill-unknown { background: rgba(148,163,184,.2); color: #c3ccdb; }
+/* days-out heat */
+html[data-theme="dark"] .heat-ok { background: rgba(22,163,74,.2); color: #7fe3a0; }
+html[data-theme="dark"] .heat-warn { background: rgba(217,119,6,.26); color: #ffce7a; }
+html[data-theme="dark"] .heat-hot { background: rgba(209,43,43,.26); color: #ff9d9d; }
+/* tags / chips */
+html[data-theme="dark"] .tag-branch { background: #1b2740; border-color: var(--line); }
+html[data-theme="dark"] .tag-branch .tp-label { color: #bcd0f0; }
+html[data-theme="dark"] .tag-nick { background: rgba(146,96,15,.32); }
+html[data-theme="dark"] .tag-nick .tp-label { color: #e6c48a; }
+html[data-theme="dark"] .van-mini { background: #1b2740; color: #bcd0f0; }
+html[data-theme="dark"] .ss-chip { background: #1b2740; color: #bcd0f0; }
+html[data-theme="dark"] .ss-chip:hover { background: #223050; }
+html[data-theme="dark"] .auto-badge { background: rgba(217,119,6,.26); color: #ffce7a; }
+html[data-theme="dark"] .data-health { color: #ffce7a; }
+/* Needs Review issue chips */
+html[data-theme="dark"] .issue-unmatched { background: rgba(217,119,6,.26); color: #ffce7a; }
+html[data-theme="dark"] .issue-nodate { background: rgba(209,43,43,.26); color: #ff9d9d; }
+html[data-theme="dark"] .issue-fuzzy { background: rgba(37,99,235,.26); color: #9cc0ff; }
+/* overdue rows */
+html[data-theme="dark"] tbody tr.row-overdue { background: rgba(209,43,43,.12); }
+html[data-theme="dark"] tbody tr.row-overdue:hover { background: rgba(209,43,43,.2); }
+/* sidebar lists */
+html[data-theme="dark"] .toplist-row { background: #0f1a2c; border-color: var(--line); }
+html[data-theme="dark"] .toplist-row:hover { background: rgba(96,165,250,.08); }
+html[data-theme="dark"] .toplist-bar { background: #263450; }
+html[data-theme="dark"] .toplist-row.od { background: rgba(209,43,43,.14); border-color: rgba(209,43,43,.4); }
+html[data-theme="dark"] .toplist-count { color: #cbd7ef; }
+/* technician chip */
+html[data-theme="dark"] .tech-link { background: #1b2740; color: #bcd0f0; }
+html[data-theme="dark"] .tech-link:hover { background: #223050; }
+/* modal internals */
+html[data-theme="dark"] .modal-card { background: var(--panel); color: var(--ink); }
+html[data-theme="dark"] .m-item .mi-meta, html[data-theme="dark"] .hist-when,
+html[data-theme="dark"] .hist-who { color: var(--muted); }
+html[data-theme="dark"] .m-stat { background: #0f1a2c; border-color: var(--line); }
+html[data-theme="dark"] .m-item { background: #0f1a2c; border-color: var(--line); }
+html[data-theme="dark"] .m-def dt, html[data-theme="dark"] .m-def dd { border-color: rgba(255,255,255,.06); }
+html[data-theme="dark"] .m-tabs { background: #0f1a2c; }
+html[data-theme="dark"] .m-tabs .mtab.active { background: #21304e; color: #fff; }
+html[data-theme="dark"] .cand { border-color: var(--line); }
+html[data-theme="dark"] .resolve-note { background: #0f1a2c; border-color: var(--line); }
+html[data-theme="dark"] .resolve-note code { background: #1b2740; }
+html[data-theme="dark"] .hist-row { border-color: rgba(255,255,255,.06); }
+/* scrollbars */
+html[data-theme="dark"] .table-wrap::-webkit-scrollbar-thumb,
+html[data-theme="dark"] .modal-body::-webkit-scrollbar-thumb,
+html[data-theme="dark"] .hist-list::-webkit-scrollbar-thumb,
+html[data-theme="dark"] .m-list::-webkit-scrollbar-thumb { background: #33425f; }
+html[data-theme="dark"] .table-wrap::-webkit-scrollbar-thumb:hover { background: #435372; }
