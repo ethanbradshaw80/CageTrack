@@ -284,12 +284,27 @@ function linkReturn(coId, retId) {
   renderAll();
 }
 
+/* Fetch with automatic retries — absorbs transient network/Google blips
+   at the request level so they never surface to the user. */
+async function fetchWithRetry(url, tries) {
+  let lastErr;
+  for (let i = 0; i < tries; i++) {
+    try {
+      const sep = url.includes("?") ? "&" : "?";
+      const res = await fetch(url + sep + "_cb=" + Date.now(), { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res;
+    } catch (e) {
+      lastErr = e;
+      if (i < tries - 1) await new Promise((r) => setTimeout(r, 1200 * (i + 1)));
+    }
+  }
+  throw new Error("Failed to fetch sheet after " + tries + " tries: " + (lastErr && lastErr.message));
+}
+
 async function loadSheet(url, colmap) {
   if (!url || url.includes("PASTE")) return [];
-  // cache-bust so each refresh pulls the latest rows, not a cached copy
-  const sep = url.includes("?") ? "&" : "?";
-  const res = await fetch(url + sep + "_cb=" + Date.now(), { cache: "no-store" });
-  if (!res.ok) throw new Error("Failed to fetch sheet (" + res.status + "): " + url);
+  const res = await fetchWithRetry(url, 3);
   const rows = parseCSV(await res.text());
   if (!rows.length) return [];
   const headers = rows[0];
