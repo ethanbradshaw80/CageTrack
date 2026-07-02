@@ -897,6 +897,7 @@ function startClock() {
    INIT
    ============================================================ */
 let _refreshing = false;
+let _failCount = 0;   // consecutive fetch failures
 async function refresh() {
   if (_refreshing) return;              // don't let the 60s timer race a slow fetch
   _refreshing = true;
@@ -911,15 +912,22 @@ async function refresh() {
     renderAll();
     const auto = CONFIG.AUTO_REFRESH_SECONDS > 0 ? ` · auto ${CONFIG.AUTO_REFRESH_SECONDS}s` : "";
     $("lastUpdated").textContent = "Updated " + new Date().toLocaleTimeString() + auto;
+    _failCount = 0;
     $("errorBanner").hidden = true;     // back online — clear any warning
   } catch (err) {
-    // Never block with alert() — show an inline banner and keep the last good data.
+    // Never block with alert() — keep the last good data and stay calm about
+    // single blips: only surface the banner after 2+ consecutive failures.
     console.error(err);
+    _failCount++;
     const hasData = ALL_RECORDS.length > 0 || RETURN_EVENTS.length > 0;
-    $("errorText").textContent = hasData
-      ? "Couldn't reach the sheet — showing the last loaded data. Will keep retrying automatically."
-      : "Couldn't load data: " + err.message;
-    $("errorBanner").hidden = false;
+    if (!hasData || _failCount >= 2) {
+      $("errorText").textContent = hasData
+        ? "Couldn't reach the sheet — showing the last loaded data. Will keep retrying automatically."
+        : "Couldn't load data: " + err.message;
+      $("errorBanner").hidden = false;
+    }
+    // after a first failure, retry quickly instead of waiting the full interval
+    if (_failCount === 1) setTimeout(() => { if ($("modal").hidden) refresh(); }, 8000);
   } finally {
     _refreshing = false;
     if (rb) { rb.classList.remove("busy"); rb.disabled = false; }
