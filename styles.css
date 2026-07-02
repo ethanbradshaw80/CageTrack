@@ -523,3 +523,24 @@ html[data-theme="dark"] .modal-body::-webkit-scrollbar-thumb,
 html[data-theme="dark"] .hist-list::-webkit-scrollbar-thumb,
 html[data-theme="dark"] .m-list::-webkit-scrollbar-thumb { background: #33425f; }
 html[data-theme="dark"] .table-wrap::-webkit-scrollbar-thumb:hover { background: #435372; }
+
+/* ============================================================
+   Error banner (connection problems — non-blocking)
+   ============================================================ */
+.error-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; border-radius: 12px;
+  padding: 10px 16px; margin: 0 0 18px; font-weight: 600; font-size: 13px; }
+html[data-theme="dark"] .error-banner { background: rgba(209,43,43,.16); border-color: rgba(209,43,43,.4); color: #ff9d9d; }
+
+/* date-range preset buttons */
+.date-presets { display: flex; gap: 6px; margin-bottom: 12px; }
+.preset-btn { flex: 1; border: 1px solid var(--line); background: #fff; color: var(--muted);
+  font-size: 11.5px; font-weight: 700; padding: 6px 4px; border-radius: 8px; cursor: pointer; font-family: inherit; }
+.preset-btn:hover { background: #f5f8fc; color: var(--navy-800); border-color: #cdd8e6; }
+html[data-theme="dark"] .preset-btn { background: #0f1a2c; border-color: var(--line); color: var(--muted); }
+html[data-theme="dark"] .preset-btn:hover { background: #1b2740; color: var(--ink); }
+
+/* refresh-in-progress feedback */
+@keyframes ct-spin { to { transform: rotate(360deg); } }
+.btn.busy { opacity: .75; pointer-events: none; }
+.btn.busy .ic { animation: ct-spin .9s linear infinite; }

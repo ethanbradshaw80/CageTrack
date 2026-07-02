@@ -45,6 +45,12 @@
       </div>
     </header>
 
+    <!-- Connection problem banner (non-blocking; keeps last good data) -->
+    <div id="errorBanner" class="error-banner" hidden>
+      <span id="errorText">Couldn't reach the sheet.</span>
+      <button id="retryBtn" class="btn btn-primary btn-sm">Retry now</button>
+    </div>
+
     <!-- ============ KPI CARDS (clickable) ============ -->
     <section class="kpi-grid" aria-label="Key metrics">
       <button class="kpi-card" data-accent="blue" data-view="out">
@@ -126,7 +132,9 @@
           <p class="hint">Tip: click a row for details, a technician's name for their summary, or a column header to sort.</p>
           <div id="savedSearches" class="saved-searches"></div>
           <div class="table-wrap" id="mainTableWrap">
-            <table id="tblMain"><thead></thead><tbody></tbody></table>
+            <table id="tblMain"><thead></thead><tbody>
+              <tr class="empty-row"><td colspan="6">Loading live data…</td></tr>
+            </tbody></table>
           </div>
         </div>
       </section>
@@ -145,6 +153,12 @@
           <div class="filter-field">
             <label for="toDate">To</label>
             <input type="date" id="toDate" />
+          </div>
+          <div class="date-presets" id="datePresets">
+            <button class="preset-btn" data-days="1">Today</button>
+            <button class="preset-btn" data-days="7">7D</button>
+            <button class="preset-btn" data-days="30">30D</button>
+            <button class="preset-btn" data-days="all">All</button>
           </div>
           <div class="filter-field">
             <label for="fTech">Technician</label>
@@ -175,11 +189,20 @@
           </div>
           <div id="overdueByTech" class="toplist"></div>
         </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Most Checked-Out Tools</h2>
+            <span class="muted-sub">in range · tap one</span>
+          </div>
+          <div id="topToolsList" class="toplist"></div>
+        </section>
       </aside>
     </div>
 
     <footer class="foot">
       <span id="rowCount">0 records</span>
+      <span id="dataFreshness"></span>
       <span id="dataHealth" class="data-health"></span>
       <span>CageTrack · Peterman Brothers</span>
     </footer>

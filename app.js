@@ -65,6 +65,12 @@ function humanDuration(hrs) {
   return Math.round(days) + (Math.round(days) === 1 ? " day" : " days");
 }
 
+// Local-timezone yyyy-mm-dd (for <input type="date"> values)
+function localISO(d) {
+  const p = (n) => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+}
+
 // "Cole, Mart (John)" -> { display: "Mart Cole", nick: "John" }
 function cleanTech(raw) {
   raw = String(raw || "").trim();
@@ -386,6 +392,8 @@ function renderKPIs(checkouts, returns) {
   // only show the red "danger" styling when something is actually overdue
   const odCard = $("kpiOverdue").closest(".kpi-card");
   if (odCard) odCard.classList.toggle("kpi-danger", overdue > 0);
+  // surface the overdue count in the browser tab title
+  document.title = (overdue > 0 ? `(${overdue}) ` : "") + "CageTrack — Peterman Brothers";
   $("kpiAvgReturn").textContent = humanDuration(avg);
   $("kpiTopTech").textContent = topN ? `${topTech} (${topN})` : "—";
   $("kpiTopTechCard").dataset.tech = topN ? topTech : "";
@@ -602,6 +610,23 @@ function renderOverdueByTech(checkouts) {
     </div>`).join("");
 }
 
+// Most checked-out tools in the current range — demand signal for procurement.
+function renderTopTools(checkouts) {
+  const el = $("topToolsList");
+  if (!el) return;
+  const counts = {};
+  checkouts.forEach((r) => { if (r.item && r._out) counts[r.item] = (counts[r.item] || 0) + 1; });
+  const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  if (!ranked.length) { el.innerHTML = `<div class="toplist-empty">No check-outs in this range.</div>`; return; }
+  const max = ranked[0][1];
+  el.innerHTML = ranked.map(([name, n], i) =>
+    `<div class="toplist-row ${i === 0 ? "top" : ""}" data-tool="${esc(name)}">
+      <span class="toplist-name">${esc(name)}</span>
+      <span class="toplist-count">${n}</span>
+      <span class="toplist-bar"><span style="width:${Math.round((n / max) * 100)}%"></span></span>
+    </div>`).join("");
+}
+
 /* ---------- Saved searches (persisted in the browser) ---------- */
 const SS_KEY = "cagetrack.savedSearches";
 function getSavedSearches() { try { return JSON.parse(localStorage.getItem(SS_KEY) || "[]"); } catch (e) { return []; } }
@@ -777,7 +802,14 @@ function renderAll() {
   renderMain(LAST_DATA);
   renderTopTechList(checkouts);
   renderOverdueByTech(checkouts);
+  renderTopTools(checkouts);
   $("rowCount").textContent = `${checkouts.length} check-outs · ${returns.length} returns`;
+
+  // Freshness: the newest entry across both sheets (global, not filtered)
+  const stamps = ALL_RECORDS.map((r) => r._out).concat(RETURN_EVENTS.map((r) => r._ret))
+    .filter(Boolean).map((d) => d.getTime());
+  $("dataFreshness").textContent = stamps.length
+    ? "Latest entry: " + fmt(new Date(Math.max.apply(null, stamps))) : "";
 
   // Data-health readout (global, not filtered)
   const fuzzy = ALL_RECORDS.filter((r) => r._matchType === "fuzzy").length;
@@ -864,7 +896,12 @@ function startClock() {
 /* ============================================================
    INIT
    ============================================================ */
+let _refreshing = false;
 async function refresh() {
+  if (_refreshing) return;              // don't let the 60s timer race a slow fetch
+  _refreshing = true;
+  const rb = $("refreshBtn");
+  if (rb) { rb.classList.add("busy"); rb.disabled = true; }
   try {
     ALL_RECORDS = await loadData();
     RECORD_BY_ID = {}; RETURN_BY_ID = {};
@@ -874,9 +911,18 @@ async function refresh() {
     renderAll();
     const auto = CONFIG.AUTO_REFRESH_SECONDS > 0 ? ` · auto ${CONFIG.AUTO_REFRESH_SECONDS}s` : "";
     $("lastUpdated").textContent = "Updated " + new Date().toLocaleTimeString() + auto;
+    $("errorBanner").hidden = true;     // back online — clear any warning
   } catch (err) {
+    // Never block with alert() — show an inline banner and keep the last good data.
     console.error(err);
-    alert("Could not load data: " + err.message);
+    const hasData = ALL_RECORDS.length > 0 || RETURN_EVENTS.length > 0;
+    $("errorText").textContent = hasData
+      ? "Couldn't reach the sheet — showing the last loaded data. Will keep retrying automatically."
+      : "Couldn't load data: " + err.message;
+    $("errorBanner").hidden = false;
+  } finally {
+    _refreshing = false;
+    if (rb) { rb.classList.remove("busy"); rb.disabled = false; }
   }
 }
 
@@ -953,6 +999,30 @@ function init() {
   $("overdueByTech").addEventListener("click", (e) => {
     const row = e.target.closest(".toplist-row"); if (row) showTechModal(row.dataset.tech);
   });
+
+  // Date-range presets (Today / 7D / 30D / All)
+  $("datePresets").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-days]"); if (!b) return;
+    if (b.dataset.days === "all") { $("fromDate").value = ""; $("toDate").value = ""; }
+    else {
+      const n = parseInt(b.dataset.days, 10);
+      const to = new Date(); const from = new Date();
+      from.setDate(to.getDate() - (n - 1));
+      $("fromDate").value = localISO(from); $("toDate").value = localISO(to);
+    }
+    renderAll();
+  });
+
+  // Most-checked-out tools → open that tool's history
+  $("topToolsList").addEventListener("click", (e) => {
+    const row = e.target.closest("[data-tool]"); if (!row) return;
+    const rec = ALL_RECORDS.slice().sort((a, b) => (b._out || 0) - (a._out || 0))
+      .find((r) => r.item === row.dataset.tool);
+    if (rec) showTxModal(rec.id);
+  });
+
+  // Error banner retry
+  $("retryBtn").addEventListener("click", refresh);
   $("topTechList").addEventListener("click", (e) => { const row = e.target.closest(".toplist-row"); if (row) showTechModal(row.dataset.tech); });
   $("modalBody").addEventListener("click", (e) => {
     const linkBtn = e.target.closest("[data-link-co]");
