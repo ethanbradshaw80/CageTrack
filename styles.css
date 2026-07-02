@@ -530,6 +530,8 @@ html[data-theme="dark"] .table-wrap::-webkit-scrollbar-thumb:hover { background:
 .error-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px;
   background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; border-radius: 12px;
   padding: 10px 16px; margin: 0 0 18px; font-weight: 600; font-size: 13px; }
+/* display:flex above would defeat the hidden attribute — restore it explicitly */
+.error-banner[hidden] { display: none; }
 html[data-theme="dark"] .error-banner { background: rgba(209,43,43,.16); border-color: rgba(209,43,43,.4); color: #ff9d9d; }
 
 /* date-range preset buttons */
