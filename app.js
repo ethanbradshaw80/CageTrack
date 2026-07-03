@@ -472,6 +472,8 @@ const COL = {
             plain: (r) => fmt(r._date), sortVal: (r) => (r._date ? r._date.getTime() : 0) },
   issue: { key: "issue", l: "Needs Review", f: (r) => `<span class="issue-chip issue-${r._issueType}">${esc(r._issue)}</span>`,
             plain: (r) => r._issue || "", sortVal: (r) => r._issue || "" },
+  resolution: { key: "resolution", l: "Resolution", f: (r) => `<span class="issue-chip issue-${r._issueType}">${esc(r._issueType === "linked" ? "Linked" : "Explained")}</span> <span class="res-note">${esc(r._issue)}</span>`,
+            plain: (r) => r._issue || "", sortVal: (r) => r._issueType || "" },
 };
 
 // Compare helper: numbers numerically, everything else with natural (numeric-aware) collation.
@@ -523,7 +525,32 @@ const VIEWS = {
     cols: [COL.item, COL.tech, COL.van, COL.reviewDate, COL.issue],
     empty: "Nothing needs review — all clean! 🎉",
   },
+  reviewed: {
+    title: "Reviewed",
+    rows: () => buildReviewedRows(),
+    cols: [COL.item, COL.tech, COL.van, COL.reviewDate, COL.resolution],
+    empty: "Nothing has been reviewed yet.",
+  },
 };
+
+/* Audit trail: exceptions a human already resolved (manual links) or
+   reviewed and explained (REVIEWED_OK). Ignores filters. */
+function buildReviewedRows() {
+  const rows = [];
+  ALL_RECORDS.filter((r) => r._matchType === "manual").forEach((r) => rows.push({
+    id: r.id, item: r.item, technician: r.technician, branch: r.branch,
+    _date: r._ret || r._out, _issue: `Linked to return “${r._matchedName}”`, _issueType: "linked",
+  }));
+  RETURN_EVENTS.filter((r) => !r._used && isReviewedOk(r)).forEach((r) => {
+    const e = (CONFIG.REVIEWED_OK || []).find((x) =>
+      normTool(x.technician) === normTool(r.technician) && normTool(x.item) === normTool(r.item));
+    rows.push({
+      id: r.id, item: r.item, technician: r.technician, branch: r.branch,
+      _date: r._ret, _issue: (e && e.note) || "Reviewed — cause confirmed", _issueType: "explained",
+    });
+  });
+  return rows.sort((a, b) => (b._date || 0) - (a._date || 0));
+}
 
 /* Has a human reviewed this orphan return and confirmed the cause?
    (Entries live in CONFIG.REVIEWED_OK; matched on tech + item + date.) */
@@ -869,6 +896,11 @@ function renderAll() {
   if (rt) {
     rt.textContent = reviewCount ? `Needs Review (${reviewCount})` : "Needs Review";
     rt.classList.toggle("has-issues", reviewCount > 0);
+  }
+  const rvd = document.querySelector('.tab[data-view="reviewed"]');
+  if (rvd) {
+    const n = buildReviewedRows().length;
+    rvd.textContent = n ? `Reviewed (${n})` : "Reviewed";
   }
 }
 function setView(view) { if (VIEWS[view]) { CURRENT_VIEW = view; SORT = { key: null, dir: 1 }; renderAll(); } }

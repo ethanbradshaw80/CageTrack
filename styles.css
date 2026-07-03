@@ -199,6 +199,9 @@ tbody tr.row-overdue:hover { background: #fbe9e9; }
 .issue-unmatched { background: #fff5d6; color: #a16207; }
 .issue-nodate { background: var(--red-soft); color: var(--red-600); }
 .issue-fuzzy { background: #e7efff; color: #1e40af; }
+.issue-linked { background: #e7f6ec; color: #15803d; }
+.issue-explained { background: #eef2f8; color: var(--navy-700); }
+.res-note { font-size: 12px; color: var(--muted); white-space: normal; }
 
 /* ============ TABLE ============ */
 .table-wrap { overflow: auto; max-height: 560px; border-radius: var(--radius-sm); }
@@ -492,6 +495,8 @@ html[data-theme="dark"] .data-health { color: #ffce7a; }
 html[data-theme="dark"] .issue-unmatched { background: rgba(217,119,6,.26); color: #ffce7a; }
 html[data-theme="dark"] .issue-nodate { background: rgba(209,43,43,.26); color: #ff9d9d; }
 html[data-theme="dark"] .issue-fuzzy { background: rgba(37,99,235,.26); color: #9cc0ff; }
+html[data-theme="dark"] .issue-linked { background: rgba(22,163,74,.22); color: #7fe3a0; }
+html[data-theme="dark"] .issue-explained { background: #1b2740; color: #bcd0f0; }
 /* overdue rows */
 html[data-theme="dark"] tbody tr.row-overdue { background: rgba(209,43,43,.12); }
 html[data-theme="dark"] tbody tr.row-overdue:hover { background: rgba(209,43,43,.2); }
