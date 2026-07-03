@@ -80,6 +80,17 @@ const CONFIG = {
       returnItem: "Shop Vac", returnDate: "2026-06-30" },
   ],
 
+  // ----- REVIEWED / EXPLAINED EXCEPTIONS -----
+  // Returns that will never have a matching check-out, where a human reviewed
+  // the case and confirmed the cause. They stay in the data and tool history,
+  // but no longer appear in Needs Review. Dates are yyyy-mm-dd.
+  REVIEWED_OK: [
+    { technician: "Jeff Myers", item: "Jackhammer", date: "2026-06-30",
+      note: "Jackhammer half of the combined 'Post hole digger and jackhammer' check-out; the two tools were returned as separate entries" },
+    { technician: "Matthew Harter", item: "Craftsman shovel x2", date: "2026-07-02",
+      note: "Bought in the field and dropped at the cage — no check-out was expected (per John)" },
+  ],
+
   // Consolidate spelling variants into one name. Key = the name to KEEP;
   // values = the variants to fold into it. Matching ignores case/spaces/punctuation,
   // so "jack hammer", "Jackhammer", and "JACK-HAMMER" all collapse together.

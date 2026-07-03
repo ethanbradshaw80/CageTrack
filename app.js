@@ -525,11 +525,20 @@ const VIEWS = {
   },
 };
 
+/* Has a human reviewed this orphan return and confirmed the cause?
+   (Entries live in CONFIG.REVIEWED_OK; matched on tech + item + date.) */
+function isReviewedOk(rec) {
+  return (CONFIG.REVIEWED_OK || []).some((e) =>
+    normTool(e.technician) === normTool(rec.technician) &&
+    normTool(e.item) === normTool(rec.item) &&
+    (!e.date || (rec._ret && localISO(rec._ret) === e.date) || (rec._out && localISO(rec._out) === e.date)));
+}
+
 /* Data-quality rows: unmatched returns, unreadable dates, and fuzzy
    auto-matches that a human should confirm. Ignores filters (it's a fix-it list). */
 function buildReviewRows() {
   const rows = [];
-  RETURN_EVENTS.filter((r) => !r._used).forEach((r) => rows.push({
+  RETURN_EVENTS.filter((r) => !r._used && !isReviewedOk(r)).forEach((r) => rows.push({
     id: r.id, item: r.item, technician: r.technician, branch: r.branch,
     _date: r._ret, _issue: "Return with no matching check-out", _issueType: "unmatched",
   }));
@@ -848,7 +857,7 @@ function renderAll() {
 
   // Data-health readout (global, not filtered)
   const fuzzy = ALL_RECORDS.filter((r) => r._matchType === "fuzzy").length;
-  const unmatched = RETURN_EVENTS.filter((r) => !r._used).length;
+  const unmatched = RETURN_EVENTS.filter((r) => !r._used && !isReviewedOk(r)).length;
   const bits = [];
   if (fuzzy) bits.push(`~${fuzzy} auto-matched`);
   if (unmatched) bits.push(`${unmatched} unmatched return${unmatched === 1 ? "" : "s"}`);
