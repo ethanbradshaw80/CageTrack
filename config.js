@@ -58,6 +58,12 @@ const CONFIG = {
   // so it removes just that one row and leaves other rows of the same tool alone.
   EXCLUDE_ROWS: [
     { technician: "Mart Cole", item: "MC Hammer", date: "" },  // undated duplicate (test line)
+    // Fabricated same-day "returns" added during the Excel->Sheet migration.
+    // Verified absent from the original Excel Returns log. Removing them lets
+    // the techs' REAL returns match their check-outs. sheet:"returns" scopes
+    // the removal so the identically-named check-out rows are untouched.
+    { technician: "Travis Fisher", item: "Shop vac ( check on this on Monday)", date: "22-Jun-26", sheet: "returns" },
+    { technician: "Nick Gadberry", item: "Jackhammer", date: "22-Jun-26", sheet: "returns" },
   ],
 
   // ----- MANUAL LINKS -----
@@ -70,6 +76,8 @@ const CONFIG = {
       returnItem: "Posthole digger", returnDate: "2026-07-01" },
     { technician: "Tyler Nappe", checkoutItem: "Water main key qty 2", checkoutDate: "2026-06-30",
       returnItem: "water key", returnDate: "2026-06-30" },
+    { technician: "Travis Fisher", checkoutItem: "Shop vac ( check on this on Monday)", checkoutDate: "2026-06-22",
+      returnItem: "Shop Vac", returnDate: "2026-06-30" },
   ],
 
   // Consolidate spelling variants into one name. Key = the name to KEEP;

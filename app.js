@@ -118,10 +118,13 @@ function isExcludedTool(item) {
 }
 
 // Should this SPECIFIC row be dropped (matched on tech + item + date)?
-function isExcludedRow(rec) {
+// An entry may set sheet: "checkouts" or "returns" to target only one side
+// (e.g. remove a fabricated return without touching the same-named check-out).
+function isExcludedRow(rec, side) {
   const rows = CONFIG.EXCLUDE_ROWS || [];
   const recDate = String(rec.checkoutTime || rec.returnTime || "").trim();
   return rows.some((e) =>
+    (e.sheet == null || e.sheet === side) &&
     (e.technician == null || normTool(e.technician) === normTool(rec.technician)) &&
     (e.item == null || normTool(e.item) === normTool(rec.item)) &&
     (e.date == null || String(e.date).trim() === recDate)
@@ -320,6 +323,7 @@ async function fetchWithRetry(url, tries) {
 
 async function loadSheet(url, colmap) {
   if (!url || url.includes("PASTE")) return [];
+  const side = ("returnTime" in colmap) ? "returns" : "checkouts";
   const res = await fetchWithRetry(url, 3);
   const rows = parseCSV(await res.text());
   if (!rows.length) return [];
@@ -330,7 +334,7 @@ async function loadSheet(url, colmap) {
     const raw = {};
     for (const key in colmap) raw[key] = idx[key] > -1 ? cells[idx[key]] : "";
     return enrich(raw);
-  }).filter((r) => (r.technician || r.item) && !isExcludedTool(r.item) && !isExcludedRow(r));
+  }).filter((r) => (r.technician || r.item) && !isExcludedTool(r.item) && !isExcludedRow(r, side));
 }
 
 /* CSV parser that handles quoted fields + commas inside quotes */
