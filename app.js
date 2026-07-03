@@ -255,8 +255,24 @@ async function loadLive() {
   }
   RETURN_EVENTS = returns.filter((r) => r._ret);
   const matched = matchRecords(checkouts, returns);
+  applyConfigLinks(matched, returns);
   applySessionLinks(matched, returns);
   return matched;
+}
+
+/* Reviewed, permanent pairings from CONFIG.MANUAL_LINKS (tech + item + date). */
+function applyConfigLinks(checkouts, returns) {
+  (CONFIG.MANUAL_LINKS || []).forEach((L) => {
+    const c = checkouts.find((x) => !x._ret &&
+      normTool(x.technician) === normTool(L.technician) &&
+      normTool(x.item) === normTool(L.checkoutItem) &&
+      (!L.checkoutDate || (x._out && localISO(x._out) === L.checkoutDate)));
+    const ret = returns.find((x) => !x._used &&
+      normTool(x.technician) === normTool(L.technician) &&
+      normTool(x.item) === normTool(L.returnItem) &&
+      (!L.returnDate || (x._ret && localISO(x._ret) === L.returnDate)));
+    if (c && ret) applyOneLink(c, ret);
+  });
 }
 
 /* Manual links survive a refresh by matching on content, not row id. */

@@ -60,6 +60,18 @@ const CONFIG = {
     { technician: "Mart Cole", item: "MC Hammer", date: "" },  // undated duplicate (test line)
   ],
 
+  // ----- MANUAL LINKS -----
+  // Permanently pair one specific return with one specific check-out when the
+  // names are too different for automatic matching. Dates are yyyy-mm-dd.
+  // These are reviewed human decisions — safer than a global alias when the
+  // wording only applies to a single transaction.
+  MANUAL_LINKS: [
+    { technician: "Jeff Myers", checkoutItem: "Post hole digger and jackhammer", checkoutDate: "2026-06-30",
+      returnItem: "Posthole digger", returnDate: "2026-07-01" },
+    { technician: "Tyler Nappe", checkoutItem: "Water main key qty 2", checkoutDate: "2026-06-30",
+      returnItem: "water key", returnDate: "2026-06-30" },
+  ],
+
   // Consolidate spelling variants into one name. Key = the name to KEEP;
   // values = the variants to fold into it. Matching ignores case/spaces/punctuation,
   // so "jack hammer", "Jackhammer", and "JACK-HAMMER" all collapse together.
