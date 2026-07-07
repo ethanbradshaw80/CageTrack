@@ -9,7 +9,7 @@ let ALL_RECORDS = [];     // check-out records (each may be matched to a return)
 let RETURN_EVENTS = [];   // every row from the Returns sheet
 let RECORD_BY_ID = {};    // id -> check-out record
 let RETURN_BY_ID = {};    // id -> return record
-let SESSION_LINKS = [];   // manual links made in the Needs Review screen
+let FILE_LINKS = [];      // permanent links loaded from manual_links.json
 let CURRENT_VIEW = "out";
 let _idc = 0;
 let _autoTimer = null;
@@ -257,15 +257,17 @@ async function loadLive() {
     returns = await loadSheet(retUrl, CONFIG.RETURN_COLUMNS);
   }
   RETURN_EVENTS = returns.filter((r) => r._ret);
+  FILE_LINKS = await loadFileLinks();
   const matched = matchRecords(checkouts, returns);
   applyConfigLinks(matched, returns);
-  applySessionLinks(matched, returns);
   return matched;
 }
 
-/* Reviewed, permanent pairings from CONFIG.MANUAL_LINKS (tech + item + date). */
+/* Reviewed, permanent pairings (tech + item + date) from three sources:
+   CONFIG.MANUAL_LINKS, manual_links.json (saved by the Link button), and
+   the browser-local fallback. */
 function applyConfigLinks(checkouts, returns) {
-  (CONFIG.MANUAL_LINKS || []).forEach((L) => {
+  (CONFIG.MANUAL_LINKS || []).concat(FILE_LINKS, getLocalLinks()).forEach((L) => {
     const c = checkouts.find((x) => !x._ret &&
       normTool(x.technician) === normTool(L.technician) &&
       normTool(x.item) === normTool(L.checkoutItem) &&
@@ -278,29 +280,67 @@ function applyConfigLinks(checkouts, returns) {
   });
 }
 
-/* Manual links survive a refresh by matching on content, not row id. */
-function linkSig(r, dateKey) {
-  return normTool(r.technician) + "|" + normTool(r.item) + "|" + ((r[dateKey] && r[dateKey].getTime()) || 0);
-}
 function applyOneLink(c, ret) {
   c.returnTime = ret.returnTime; c._ret = ret._ret;
   c._matchType = "manual"; c._matchedName = ret.item;
   c.status = deriveStatus(c); ret._used = true;
 }
-function applySessionLinks(checkouts, returns) {
-  SESSION_LINKS.forEach((L) => {
-    const c = checkouts.find((x) => !x._ret && linkSig(x, "_out") === L.co);
-    const ret = returns.find((x) => !x._used && linkSig(x, "_ret") === L.ret);
-    if (c && ret) applyOneLink(c, ret);
-  });
+
+/* ---------- Permanent link storage ----------
+   Links made in Needs Review are written to manual_links.json on disk via
+   the dev server's POST /api/save-link. localStorage is the fallback if the
+   file save isn't available (e.g. the app is hosted somewhere static). */
+const LS_LINKS_KEY = "cagetrack.manualLinks";
+function getLocalLinks() { try { return JSON.parse(localStorage.getItem(LS_LINKS_KEY) || "[]"); } catch (e) { return []; } }
+function setLocalLinks(a) { try { localStorage.setItem(LS_LINKS_KEY, JSON.stringify(a)); } catch (e) {} }
+
+async function loadFileLinks() {
+  try {
+    const res = await fetch("manual_links.json?_cb=" + Date.now(), { cache: "no-store" });
+    if (!res.ok) return [];
+    const list = await res.json();
+    return Array.isArray(list) ? list : [];
+  } catch (e) { return []; }
 }
-function linkReturn(coId, retId) {
+
+async function linkReturn(coId, retId) {
   const c = RECORD_BY_ID[coId], ret = RETURN_BY_ID[retId];
   if (!c || !ret) return;
-  SESSION_LINKS.push({ co: linkSig(c, "_out"), ret: linkSig(ret, "_ret") });
+  const entry = {
+    technician: c.technician,
+    checkoutItem: c.item, checkoutDate: c._out ? localISO(c._out) : "",
+    returnItem: ret.item, returnDate: ret._ret ? localISO(ret._ret) : "",
+    linkedOn: localISO(new Date()),
+  };
   applyOneLink(c, ret);
   closeModal();
   renderAll();
+
+  // persist: try the on-disk file first, keep a browser copy as fallback
+  let saved = false;
+  try {
+    const body = JSON.stringify(entry)
+      .replace(/[^\x00-\x7f]/g, (ch) => "\\u" + ch.charCodeAt(0).toString(16).padStart(4, "0"));
+    const res = await fetch("api/save-link", { method: "POST", headers: { "Content-Type": "application/json" }, body });
+    saved = res.ok;
+  } catch (e) {}
+  if (saved) {
+    FILE_LINKS.push(entry);
+    toast("✓ Link saved permanently (manual_links.json)", true);
+  } else {
+    const ls = getLocalLinks(); ls.push(entry); setLocalLinks(ls);
+    toast("Link saved in this browser only — file save unavailable", false);
+  }
+}
+
+/* small confirmation toast */
+function toast(msg, ok) {
+  const t = document.createElement("div");
+  t.className = "toast" + (ok ? " ok" : " warn");
+  t.textContent = msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => t.classList.add("show"));
+  setTimeout(() => { t.classList.remove("show"); setTimeout(() => t.remove(), 350); }, 3500);
 }
 
 /* Fetch with automatic retries — absorbs transient network/Google blips
@@ -827,7 +867,7 @@ function openResolveModal(retId) {
 
   openModal("Resolve return", head +
     `<div class="m-sub">Closest open check-outs</div><div class="cand-list">${list}</div>
-     <div class="resolve-note">Linking fixes it here for this session (it survives refreshes). To make it permanent, fix the names in the sheet/form or add a tool alias in <code>config.js</code>.</div>`);
+     <div class="resolve-note">Linking is <strong>permanent</strong> — it's saved to <code>manual_links.json</code> next to the app. To undo a link, remove its entry from that file.</div>`);
 }
 
 function showTxModal(id) {

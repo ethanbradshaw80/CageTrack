@@ -547,6 +547,15 @@ html[data-theme="dark"] .error-banner { background: rgba(209,43,43,.16); border-
 html[data-theme="dark"] .preset-btn { background: #0f1a2c; border-color: var(--line); color: var(--muted); }
 html[data-theme="dark"] .preset-btn:hover { background: #1b2740; color: var(--ink); }
 
+/* confirmation toast */
+.toast { position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 16px);
+  background: var(--navy-900); color: #fff; font-size: 13px; font-weight: 600;
+  padding: 11px 18px; border-radius: 999px; box-shadow: 0 10px 30px rgba(0,0,0,.3);
+  opacity: 0; transition: opacity .3s ease, transform .3s ease; z-index: 90; pointer-events: none; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast.ok { background: #14532d; }
+.toast.warn { background: #92600f; }
+
 /* refresh-in-progress feedback */
 @keyframes ct-spin { to { transform: rotate(360deg); } }
 .btn.busy { opacity: .75; pointer-events: none; }
