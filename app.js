@@ -10,6 +10,7 @@ let RETURN_EVENTS = [];   // every row from the Returns sheet
 let RECORD_BY_ID = {};    // id -> check-out record
 let RETURN_BY_ID = {};    // id -> return record
 let FILE_LINKS = [];      // permanent links loaded from manual_links.json
+let SHEET_LINKS = [];     // shared links loaded from the sheet's Links tab
 let CURRENT_VIEW = "out";
 let _idc = 0;
 let _autoTimer = null;
@@ -258,6 +259,7 @@ async function loadLive() {
   }
   RETURN_EVENTS = returns.filter((r) => r._ret);
   FILE_LINKS = await loadFileLinks();
+  SHEET_LINKS = await loadSheetLinks();
   const matched = matchRecords(checkouts, returns);
   applyConfigLinks(matched, returns);
   return matched;
@@ -267,7 +269,7 @@ async function loadLive() {
    CONFIG.MANUAL_LINKS, manual_links.json (saved by the Link button), and
    the browser-local fallback. */
 function applyConfigLinks(checkouts, returns) {
-  (CONFIG.MANUAL_LINKS || []).concat(FILE_LINKS, getLocalLinks()).forEach((L) => {
+  (CONFIG.MANUAL_LINKS || []).concat(SHEET_LINKS, FILE_LINKS, getLocalLinks()).forEach((L) => {
     const c = checkouts.find((x) => !x._ret &&
       normTool(x.technician) === normTool(L.technician) &&
       normTool(x.item) === normTool(L.checkoutItem) &&
@@ -303,6 +305,35 @@ async function loadFileLinks() {
   } catch (e) { return []; }
 }
 
+/* Shared links from the sheet's Links tab (written by the Apps Script).
+   Reads the same spreadsheet as the data, just a different tab. */
+async function loadSheetLinks() {
+  try {
+    const tab = (CONFIG.LINKS && CONFIG.LINKS.TAB_NAME) || "Links";
+    const base = CONFIG.GOOGLE_SHEET_CHECKOUTS_CSV_URL || "";
+    if (!base.includes("sheet=")) return [];
+    const url = base.replace(/sheet=[^&]+/, "sheet=" + encodeURIComponent(tab));
+    const res = await fetch(url + "&_cb=" + Date.now(), { cache: "no-store" });
+    if (!res.ok) return [];
+    const text = await res.text();
+    if (text.slice(0, 200).includes("<html")) return [];   // tab doesn't exist yet
+    const rows = parseCSV(text);
+    if (rows.length < 2) return [];
+    const h = rows[0].map((x) => normTool(x));
+    const col = (name) => h.indexOf(normTool(name));
+    const iT = col("Technician"), iCI = col("Checkout Item"), iCD = col("Checkout Date"),
+          iRI = col("Return Item"), iRD = col("Return Date");
+    if (iT < 0 || iCI < 0 || iRI < 0) return [];
+    // normalize dates to yyyy-mm-dd regardless of how Sheets formatted them
+    const nd = (v) => { const d = parseDate(v); return d ? localISO(d) : ""; };
+    return rows.slice(1).map((c) => ({
+      technician: c[iT] || "", checkoutItem: c[iCI] || "",
+      checkoutDate: iCD > -1 ? nd(c[iCD]) : "",
+      returnItem: c[iRI] || "", returnDate: iRD > -1 ? nd(c[iRD]) : "",
+    })).filter((l) => l.technician && l.checkoutItem);
+  } catch (e) { return []; }
+}
+
 async function linkReturn(coId, retId) {
   const c = RECORD_BY_ID[coId], ret = RETURN_BY_ID[retId];
   if (!c || !ret) return;
@@ -316,7 +347,22 @@ async function linkReturn(coId, retId) {
   closeModal();
   renderAll();
 
-  // persist: try the on-disk file first, keep a browser copy as fallback
+  // persist, best home first:
+  // 1) the shared Links tab in the Google Sheet (everyone sees it; works hosted)
+  const saveUrl = (CONFIG.LINKS && CONFIG.LINKS.SAVE_URL) || "";
+  if (saveUrl) {
+    try {
+      // Apps Script can't answer a CORS preflight, so this is a "no-cors"
+      // simple POST (text/plain): it fires the save but the response is
+      // opaque. We optimistically show success; the next data refresh reads
+      // the Links tab back, which reconciles if anything didn't stick.
+      await fetch(saveUrl, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(entry) });
+      SHEET_LINKS.push(entry);
+      toast("✓ Link saved to the shared sheet", true);
+      return;
+    } catch (e) {}
+  }
+  // 2) manual_links.json via the local dev server
   let saved = false;
   try {
     const body = JSON.stringify(entry)
@@ -327,10 +373,11 @@ async function linkReturn(coId, retId) {
   if (saved) {
     FILE_LINKS.push(entry);
     toast("✓ Link saved permanently (manual_links.json)", true);
-  } else {
-    const ls = getLocalLinks(); ls.push(entry); setLocalLinks(ls);
-    toast("Link saved in this browser only — file save unavailable", false);
+    return;
   }
+  // 3) this browser only (last resort)
+  const ls = getLocalLinks(); ls.push(entry); setLocalLinks(ls);
+  toast("Link saved in this browser only — shared save unavailable", false);
 }
 
 /* small confirmation toast */

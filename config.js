@@ -33,6 +33,17 @@ const CONFIG = {
   // dashboard update itself as techs submit the form — no Refresh click needed.
   AUTO_REFRESH_SECONDS: 60,
 
+  // ----- SHARED LINK SAVING (works on the hosted site for everyone) -----
+  // Links made in Needs Review are stored in a "Links" tab of the same
+  // Google Sheet, written by a tiny Google Apps Script web app (see
+  // apps-script/Code.gs for the code and setup steps). Once SAVE_URL is
+  // filled in, anyone using the dashboard — hosted or local — saves links
+  // to the shared sheet and everyone sees them.
+  LINKS: {
+    SAVE_URL: "",       // paste the Apps Script "web app" URL here
+    TAB_NAME: "Links",  // the tab the script writes to / the app reads from
+  },
+
   // Column headers in the CHECK-OUTS tab (exact text).
   CHECKOUT_COLUMNS: {
     technician:   "Name",
