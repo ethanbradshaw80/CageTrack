@@ -1,0 +1,3 @@
+# CageTrack is an internal tool. Keep it out of search engines.
+User-agent: *
+Disallow: /
