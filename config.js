@@ -89,6 +89,12 @@ const CONFIG = {
       note: "Jackhammer half of the combined 'Post hole digger and jackhammer' check-out; the two tools were returned as separate entries" },
     { technician: "Matthew Harter", item: "Craftsman shovel x2", date: "2026-07-02",
       note: "Bought in the field and dropped at the cage — no check-out was expected (per John)" },
+    { technician: "Matthew Harter", item: "Shop vac", date: "2026-07-03",
+      note: "Return entry with no matching check-out — reviewed with the team (likely submitted on the wrong form)" },
+    { technician: "Rodney Smith", item: "Shovel", date: "2026-07-15",
+      note: "Shovel Ollie bought under company tools and dropped at the cage — no check-out expected; techs were told not to file returns for field purchases" },
+    { technician: "Alec Kern", item: "Core drill w 1 ips bit", date: "2026-07-10",
+      note: "Fuzzy auto-match verified: checkout and same-day return are the same core drill, just worded differently" },
   ],
 
   // Consolidate spelling variants into one name. Key = the name to KEEP;

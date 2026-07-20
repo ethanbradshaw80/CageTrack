@@ -581,6 +581,11 @@ function buildReviewedRows() {
     id: r.id, item: r.item, technician: r.technician, branch: r.branch,
     _date: r._ret || r._out, _issue: `Linked to return “${r._matchedName}”`, _issueType: "linked",
   }));
+  // fuzzy auto-matches a human has confirmed via REVIEWED_OK
+  ALL_RECORDS.filter((r) => r._matchType === "fuzzy" && isReviewedOk(r)).forEach((r) => rows.push({
+    id: r.id, item: r.item, technician: r.technician, branch: r.branch,
+    _date: r._ret || r._out, _issue: `Auto-match to “${r._matchedName}” verified`, _issueType: "linked",
+  }));
   RETURN_EVENTS.filter((r) => !r._used && isReviewedOk(r)).forEach((r) => {
     const e = (CONFIG.REVIEWED_OK || []).find((x) =>
       normTool(x.technician) === normTool(r.technician) && normTool(x.item) === normTool(r.item));
@@ -617,7 +622,7 @@ function buildReviewRows() {
     id: r.id, item: r.item, technician: r.technician, branch: r.branch,
     _date: null, _issue: "Return has no readable date", _issueType: "nodate",
   }));
-  ALL_RECORDS.filter((r) => r._matchType === "fuzzy").forEach((r) => rows.push({
+  ALL_RECORDS.filter((r) => r._matchType === "fuzzy" && !isReviewedOk(r)).forEach((r) => rows.push({
     id: r.id, item: r.item, technician: r.technician, branch: r.branch,
     _date: r._out, _issue: `Auto-matched to “${r._matchedName}” — verify`, _issueType: "fuzzy",
   }));

@@ -1,1 +1,26 @@
-[]
+[
+    {
+        "technician":  "Nick Gadberry",
+        "checkoutItem":  "Well pump lifting tool",
+        "checkoutDate":  "2026-07-02",
+        "returnItem":  "Well lifting tool",
+        "returnDate":  "2026-07-07",
+        "linkedOn":  "2026-07-07"
+    },
+    {
+        "technician":  "Oswaldo Alvarado Torres",
+        "checkoutItem":  "Recovery machine and vacuum",
+        "checkoutDate":  "2026-07-02",
+        "returnItem":  "Recovery machine",
+        "returnDate":  "2026-07-13",
+        "linkedOn":  "2026-07-13"
+    },
+    {
+        "technician":  "Matthew Harter",
+        "checkoutItem":  "Pipe threader/cutter",
+        "checkoutDate":  "2026-07-10",
+        "returnItem":  "Pipe Threader/tap dye",
+        "returnDate":  "2026-07-10",
+        "linkedOn":  "2026-07-13"
+    }
+]
