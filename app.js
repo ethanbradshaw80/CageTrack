@@ -37,6 +37,12 @@ function parseDate(v) {
     if (yr < 100) yr += 2000;
     if (mo != null) return new Date(yr, mo, parseInt(m[1], 10));
   }
+  // Plain yyyy-mm-dd (how we write dates to the shared Links tab). These MUST
+  // be built as a local date: `new Date("2026-07-20")` is parsed as UTC
+  // midnight, which reads back as the 19th anywhere west of UTC — every saved
+  // date would drift a day earlier on each round-trip through the sheet.
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (iso) return new Date(+iso[1], +iso[2] - 1, +iso[3]);
   const d = new Date(s);
   return isNaN(d.getTime()) ? null : d;
 }

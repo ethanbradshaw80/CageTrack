@@ -40,7 +40,7 @@ const CONFIG = {
   // filled in, anyone using the dashboard — hosted or local — saves links
   // to the shared sheet and everyone sees them.
   LINKS: {
-    SAVE_URL: "",       // paste the Apps Script "web app" URL here
+    SAVE_URL: "https://script.google.com/macros/s/AKfycbwjjn9SwXq-rRxFGbNOE-AJWASdSsO3Gx7wEiZPRl16AIYd1PEp8PBBINE6HDf6zVAdWg/exec",
     TAB_NAME: "Links",  // the tab the script writes to / the app reads from
   },
 
