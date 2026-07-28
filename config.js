@@ -108,6 +108,17 @@ const CONFIG = {
       note: "Fuzzy auto-match verified: checkout and same-day return are the same core drill, just worded differently" },
   ],
 
+  // ----- MARKED RETURNED (came back, but no return form was ever filed) -----
+  // Use this when a tool is physically back but the tech never submitted a
+  // return, so there's no Returns row to link to. It creates a return for that
+  // check-out: the item leaves "Currently Out" and shows in Returns history,
+  // flagged as manually marked (not a real filed return). Dates are yyyy-mm-dd.
+  MARK_RETURNED: [
+    { technician: "Brandon Collins", item: "Shop vac", checkoutDate: "2026-07-20",
+      returnDate: "2026-07-28",
+      note: "Shop vac came back to the cage but Brandon never filed a return form; return recorded manually" },
+  ],
+
   // Consolidate spelling variants into one name. Key = the name to KEEP;
   // values = the variants to fold into it. Matching ignores case/spaces/punctuation,
   // so "jack hammer", "Jackhammer", and "JACK-HAMMER" all collapse together.

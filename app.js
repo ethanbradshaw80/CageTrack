@@ -262,7 +262,37 @@ async function loadLive() {
   SHEET_LINKS = await loadSheetLinks();
   const matched = matchRecords(checkouts, returns);
   applyConfigLinks(matched, returns);
+  applyMarkReturned(matched);
   return matched;
+}
+
+/* CONFIG.MARK_RETURNED: tools that physically came back but never had a return
+   form filed. For each, we clear the check-out (out of "Currently Out") and
+   synthesize a return event so it appears in Returns history — flagged _marked
+   so it's never mistaken for a real filed return. Matched on tech + item +
+   optional check-out date. */
+function applyMarkReturned(checkouts) {
+  (CONFIG.MARK_RETURNED || []).forEach((M) => {
+    const c = checkouts.find((x) => !x._ret &&
+      normTool(x.technician) === normTool(M.technician) &&
+      normTool(x.item) === normTool(M.item) &&
+      (!M.checkoutDate || (x._out && localISO(x._out) === M.checkoutDate)));
+    if (!c) return;
+    const rd = M.returnDate ? parseDate(M.returnDate) : null;
+    c.returnTime = M.returnDate || "";
+    c._ret = rd;
+    c._matchType = "marked";
+    c._matchNote = M.note || "";
+    c.status = deriveStatus(c);
+    // synthesize the return row so it shows in Returns / tool history
+    RETURN_EVENTS.push({
+      id: "MARK-" + (_idc++),
+      technician: c.technician, nick: c.nick, branch: c.branch,
+      item: c.item, checkoutTime: "", returnTime: M.returnDate || "",
+      _out: null, _ret: rd, _used: true, _marked: true, _note: M.note || "",
+      status: "Returned", _due: null,
+    });
+  });
 }
 
 /* Reviewed, permanent pairings (tech + item + date) from three sources:
