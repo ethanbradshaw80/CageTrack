@@ -104,6 +104,8 @@ const CONFIG = {
       note: "Return entry with no matching check-out — reviewed with the team (likely submitted on the wrong form)" },
     { technician: "Rodney Smith", item: "Shovel", date: "2026-07-15",
       note: "Shovel Ollie bought under company tools and dropped at the cage — no check-out expected; techs were told not to file returns for field purchases" },
+    { technician: "Joshua Decker", item: "Shop-vac", date: "2026-07-20",
+      note: "Reviewed by Ethan — Joshua has no check-out on record at all, so there is nothing for this return to pair with; confirmed no follow-up needed" },
     { technician: "Alec Kern", item: "Core drill w 1 ips bit", date: "2026-07-10",
       note: "Fuzzy auto-match verified: checkout and same-day return are the same core drill, just worded differently" },
   ],
