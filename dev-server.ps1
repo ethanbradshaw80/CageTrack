@@ -19,7 +19,8 @@ $mime = @{
   ".html"="text/html"; ".css"="text/css"; ".js"="application/javascript";
   ".json"="application/json"; ".png"="image/png"; ".svg"="image/svg+xml";
   ".ico"="image/x-icon"; ".csv"="text/csv"; ".avif"="image/avif";
-  ".jpg"="image/jpeg"; ".jpeg"="image/jpeg"; ".webp"="image/webp"
+  ".jpg"="image/jpeg"; ".jpeg"="image/jpeg"; ".webp"="image/webp";
+  ".woff2"="font/woff2"; ".woff"="font/woff"; ".txt"="text/plain"
 }
 
 function Send-Bytes($stream, [string]$status, [string]$ctype, [byte[]]$bytes) {

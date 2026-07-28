@@ -4,32 +4,60 @@
    Clickable, drill-down focused. Filters docked right.
    ============================================================ */
 
+/* Zilla Slab — the Brand Guide's font for "websites and other digital
+   properties" (p.13). Self-hosted rather than pulled from Google Fonts so the
+   dashboard doesn't depend on an outside service loading. Latin subset only.
+   Licensed under the SIL Open Font License — see fonts/README.txt. */
+@font-face { font-family: "Zilla Slab"; font-style: normal; font-weight: 400;
+  font-display: swap; src: url("fonts/zilla-slab-400.woff2") format("woff2"); }
+@font-face { font-family: "Zilla Slab"; font-style: normal; font-weight: 500;
+  font-display: swap; src: url("fonts/zilla-slab-500.woff2") format("woff2"); }
+@font-face { font-family: "Zilla Slab"; font-style: normal; font-weight: 600;
+  font-display: swap; src: url("fonts/zilla-slab-600.woff2") format("woff2"); }
+@font-face { font-family: "Zilla Slab"; font-style: normal; font-weight: 700;
+  font-display: swap; src: url("fonts/zilla-slab-700.woff2") format("woff2"); }
+
+/* Colours are taken verbatim from the Peterman Brothers Brand Guide (p.11).
+   PANTONE 540 #003D5B is the anchor; the darker/lighter navy steps are tints
+   of it so gradients stay on-brand. */
 :root {
-  --navy-900: #04203f;   /* matched to the Peterman logo background so it blends */
-  --navy-800: #102a56;
-  --navy-700: #173a73;
-  --navy-600: #1e4a8f;
-  --red:      #d12b2b;
-  --red-600:  #b91c1c;
-  --red-soft: #fdeaea;
+  --navy-900: #003D5B;   /* PANTONE 540 — primary brand navy */
+  --navy-800: #04314a;
+  --navy-700: #0a5c82;
+  --navy-600: #10709c;
+  --red:      #C8102E;   /* PANTONE 186 */
+  --red-600:  #93272C;   /* PANTONE 7622 */
+  --red-soft: #F2D4D7;   /* PANTONE 698 */
 
-  --page:   #eef2f7;
+  --page:   #eaf1f7;     /* very light tint of PANTONE 545 */
   --panel:  #ffffff;
-  --ink:    #0f1f3a;
-  --muted:  #64748b;
-  --line:   #e6ebf2;
+  --ink:    #101820;     /* PANTONE Black 6 */
+  --muted:  #4f6b85;     /* desaturated navy — holds contrast on white */
+  --line:   #d6e4ef;     /* tint of PANTONE 545 */
 
-  --blue:   #2563eb;
-  --green:  #16a34a;
-  --amber:  #d97706;
-  --purple: #7c3aed;
+  --blue:   #1c6ea4;
+  --green:  #16794a;
+  --amber:  #a86a11;
+  --purple: #5b6f9c;
 
-  --radius: 16px;
-  --radius-sm: 10px;
-  /* softer, layered shadows for a more premium, less "heavy card" feel */
-  --shadow: 0 1px 2px rgba(10,31,68,.04), 0 3px 10px rgba(10,31,68,.045), 0 10px 24px rgba(10,31,68,.05);
-  --shadow-lg: 0 10px 34px rgba(10,31,68,.13);
-  --ring: 0 0 0 3px rgba(30,74,143,.16);
+  /* KPI accents. The brand palette is mostly navy/blue/red, so these are
+     spread deliberately — a bright blue and the deep 540 navy sit far apart
+     in lightness, and the two slots the palette has no answer for (Returns,
+     Top Tech) use a functional green and a neutral slate rather than a third
+     blue. Each is dark enough for a white icon to read on it. */
+  --acc-blue:   #2E7CC4;   /* Check-outs Today */
+  --acc-green:  #16794a;   /* Returns Today */
+  --acc-navy:   #003D5B;   /* Currently Out */
+  --acc-red:    #C8102E;   /* Overdue */
+  --acc-amber:  #946037;   /* Avg Return Time — PANTONE 4635 */
+  --acc-purple: #55677d;   /* Top Tech Today */
+
+  /* Brand Guide p.9: backgrounds use rounded corners of 0.125in (=12px). */
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 2px rgba(0,61,91,.05), 0 3px 10px rgba(0,61,91,.05), 0 10px 24px rgba(0,61,91,.06);
+  --shadow-lg: 0 10px 34px rgba(0,61,91,.16);
+  --ring: 0 0 0 3px rgba(0,61,91,.18);
 }
 
 * { box-sizing: border-box; }
@@ -44,23 +72,40 @@ html, body { height: 100%; }
 body {
   margin: 0;
   font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
-  background: radial-gradient(1200px 500px at 100% -10%, #dde6f3 0%, transparent 60%), var(--page);
+  background: var(--page);
   color: var(--ink);
   font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased;
 }
 .app { max-width: 1480px; margin: 0 auto; padding: 0 24px 28px; }
 svg.ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 
+/* Zilla Slab carries the headings and figures. Table cells stay on the sans
+   stack on purpose: a slab serif at 13px in a dense grid of dates and tool
+   names is measurably harder to scan than a sans, and this view is read at a
+   glance far more often than it's read closely. */
+h1, h2, h3, h4,
+.kpi-label, .kpi-value, .kpi-value-sm, .clock-time,
+.panel-title, .m-sub, .tab, th {
+  font-family: "Zilla Slab", Georgia, serif;
+  letter-spacing: .2px;
+}
+
 /* ============ TOP BAR ============ */
 .topbar {
   display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px;
   margin: 18px 0; padding: 14px 22px;
-  background: linear-gradient(120deg, var(--navy-900), var(--navy-700));
-  color: #fff; border-radius: var(--radius); box-shadow: var(--shadow-lg);
+  /* The diagonal echoes the Brand Guide's slash (p.10, 64.406°). It's a hint
+     rather than the literal slash — the guide warns the slash and the wordmark
+     use different angles and shouldn't sit together. */
+  background:
+    linear-gradient(64.406deg, rgba(164,200,225,.16) 0 38%, transparent 38%),
+    linear-gradient(120deg, #071631, var(--navy-900) 60%, var(--navy-700));
+  color: #fff; border-radius: var(--radius); box-shadow: 0 2px 8px rgba(0,61,91,.18);
   position: relative; overflow: hidden;
+  font-family: "Zilla Slab", Georgia, serif;
 }
 .topbar::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
-  background: linear-gradient(90deg, var(--red), #ff6a3d); }
+  background: linear-gradient(90deg, var(--red) 0 22%, #A4C8E1 22% 100%); }
 
 .brand {
   display: flex; align-items: center; gap: 14px; min-width: 0; overflow: hidden;
@@ -90,11 +135,9 @@ svg.ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-wid
 .tag .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .tag-mock { background: rgba(253,230,138,.18); color: #fcd34d; }
 .tag-live { background: rgba(34,197,94,.18); color: #4ade80; }
-.tag-live .dot { box-shadow: 0 0 0 3px rgba(74,222,128,.25); }
 /* Shared-saving status — tells you at a glance whether a save reaches everyone */
 #syncTag { border: 0; cursor: pointer; font-family: inherit; white-space: nowrap; }
 .tag-sync-on { background: rgba(34,197,94,.18); color: #4ade80; }
-.tag-sync-on .dot { box-shadow: 0 0 0 3px rgba(74,222,128,.25); }
 .tag-sync-off { background: rgba(248,113,113,.18); color: #fca5a5; }
 .tag-sync-pending { background: rgba(253,230,138,.18); color: #fcd34d; }
 
@@ -120,21 +163,21 @@ svg.ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-wid
 .kpi-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
 .kpi-card.active { border-color: var(--navy-600); box-shadow: var(--ring), var(--shadow); }
 .kpi-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--navy-600); }
-.kpi-card[data-accent="blue"]::before { background: var(--blue); }
-.kpi-card[data-accent="green"]::before { background: var(--green); }
-.kpi-card[data-accent="navy"]::before { background: var(--navy-700); }
-.kpi-card[data-accent="red"]::before { background: var(--red); }
-.kpi-card[data-accent="amber"]::before { background: var(--amber); }
-.kpi-card[data-accent="purple"]::before { background: var(--purple); }
+.kpi-card[data-accent="blue"]::before { background: var(--acc-blue); }
+.kpi-card[data-accent="green"]::before { background: var(--acc-green); }
+.kpi-card[data-accent="navy"]::before { background: var(--acc-navy); }
+.kpi-card[data-accent="red"]::before { background: var(--acc-red); }
+.kpi-card[data-accent="amber"]::before { background: var(--acc-amber); }
+.kpi-card[data-accent="purple"]::before { background: var(--acc-purple); }
 
 .kpi-icon { width: 44px; height: 44px; border-radius: 12px; flex: none; display: grid; place-items: center; color: #fff; }
 .kpi-icon svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.kpi-card[data-accent="blue"] .kpi-icon { background: var(--blue); }
-.kpi-card[data-accent="green"] .kpi-icon { background: var(--green); }
-.kpi-card[data-accent="navy"] .kpi-icon { background: var(--navy-700); }
-.kpi-card[data-accent="red"] .kpi-icon { background: var(--red); }
-.kpi-card[data-accent="amber"] .kpi-icon { background: var(--amber); }
-.kpi-card[data-accent="purple"] .kpi-icon { background: var(--purple); }
+.kpi-card[data-accent="blue"] .kpi-icon { background: var(--acc-blue); }
+.kpi-card[data-accent="green"] .kpi-icon { background: var(--acc-green); }
+.kpi-card[data-accent="navy"] .kpi-icon { background: var(--acc-navy); }
+.kpi-card[data-accent="red"] .kpi-icon { background: var(--acc-red); }
+.kpi-card[data-accent="amber"] .kpi-icon { background: var(--acc-amber); }
+.kpi-card[data-accent="purple"] .kpi-icon { background: var(--acc-purple); }
 .kpi-body { min-width: 0; }
 .kpi-label { font-size: 12px; color: var(--muted); font-weight: 700; }
 .kpi-value { font-size: 30px; font-weight: 800; line-height: 1.1; letter-spacing: -.5px; margin-top: 2px; }
@@ -439,13 +482,9 @@ html[data-theme="dark"] .ts-knob { transform: translateX(28px); background: #1e2
 html[data-theme="dark"] .ts-sun { opacity: 0; }
 html:not([data-theme="dark"]) .ts-moon { opacity: 0; }
 
-/* colored glow under KPI icons — adds pop in both themes */
-.kpi-card[data-accent="blue"] .kpi-icon   { box-shadow: 0 8px 18px -6px var(--blue); }
-.kpi-card[data-accent="green"] .kpi-icon  { box-shadow: 0 8px 18px -6px var(--green); }
-.kpi-card[data-accent="navy"] .kpi-icon   { box-shadow: 0 8px 18px -6px var(--navy-700); }
-.kpi-card[data-accent="red"] .kpi-icon    { box-shadow: 0 8px 18px -6px var(--red); }
-.kpi-card[data-accent="amber"] .kpi-icon  { box-shadow: 0 8px 18px -6px var(--amber); }
-.kpi-card[data-accent="purple"] .kpi-icon { box-shadow: 0 8px 18px -6px var(--purple); }
+/* KPI icons are flat blocks of colour — the coloured glow that used to sit
+   under them competed with the accent instead of supporting it. */
+.kpi-card .kpi-icon { box-shadow: none; }
 
 /* Freeze ALL transitions during a theme swap so var()-based backgrounds
    change instantly instead of getting stuck mid-transition. Hover transitions
@@ -459,18 +498,23 @@ html.theme-switching *, html.theme-switching *::before, html.theme-switching *::
    ============================================================ */
 html[data-theme="dark"] {
   color-scheme: dark;                 /* native controls, date pickers & scrollbars go dark */
-  --page: #0b1220;
-  --panel: #131d31;
-  --ink: #e7edf7;
-  --muted: #93a3bd;
-  --line: rgba(255,255,255,.09);
-  --red-soft: rgba(209,43,43,.16);
+  /* Dark values come from the Brand Guide too: "Dark Blue Lines" #071631 and
+     PANTONE Black 6 for the deepest surfaces. */
+  --page: #071631;
+  --panel: #0b2135;
+  --ink: #e8eff6;
+  --muted: #9fb8cd;
+  --line: rgba(255,255,255,.10);
+  --red-soft: rgba(200,16,46,.18);
   --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.35);
   --shadow-lg: 0 14px 44px rgba(0,0,0,.55);
-  --ring: 0 0 0 3px rgba(96,165,250,.32);
+  --ring: 0 0 0 3px rgba(139,184,232,.32);
 }
-html[data-theme="dark"] body {
-  background: radial-gradient(1100px 500px at 100% -10%, rgba(37,74,143,.18) 0%, transparent 60%), var(--page);
+html[data-theme="dark"] body { background: var(--page); }
+html[data-theme="dark"] .topbar {
+  background:
+    linear-gradient(64.406deg, rgba(164,200,225,.10) 0 38%, transparent 38%),
+    linear-gradient(120deg, #050f22, var(--navy-900));
 }
 /* headings that used dark-navy ink */
 html[data-theme="dark"] .panel-head h2 { color: #d3def3; }
