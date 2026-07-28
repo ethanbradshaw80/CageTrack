@@ -30,7 +30,8 @@
    ============================================================ */
 
 var TAB_NAME = 'Links';
-var HEADERS = ['Technician', 'Checkout Item', 'Checkout Date', 'Return Item', 'Return Date', 'Type', 'Note', 'Linked On'];
+var HEADERS = ['Technician', 'Checkout Item', 'Checkout Date', 'Return Item', 'Return Date',
+               'Type', 'Note', 'UID', 'Target UID', 'Saved By', 'Linked On'];
 
 function doPost(e) {
   try {
@@ -42,8 +43,11 @@ function doPost(e) {
       data.checkoutDate || '',
       data.returnItem  || '',
       data.returnDate  || '',
-      data.type        || 'link',   // 'link' (paired to a real return) or 'marked' (no return form filed)
+      data.type        || 'link',   // 'link' (paired to a real return), 'marked' (no return form filed), or 'removed' (an undo)
       data.note        || '',
+      data.uid         || '',       // id of THIS save
+      data.targetUid   || '',       // for an undo: the id of the save being removed
+      data.savedBy     || '',
       data.linkedOn    || new Date().toISOString().slice(0, 10)
     ]);
     return jsonOut_({ ok: true });

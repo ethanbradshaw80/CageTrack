@@ -99,6 +99,13 @@ then click **Upload N now** to push them into the shared sheet.
 | Chip is green but no row appears | The deployment wasn't set to **Who has access: Anyone**. Redeploy and check that setting. |
 | Nothing happens after editing the script later | Apps Script changes only go live on a **new version**: Deploy → Manage deployments → edit → New version. |
 
-## If you ever need to undo a save
-Open the **Links** tab in the sheet and delete that row. The dashboard picks up
-the change on its next refresh.
+## If someone makes a wrong fix
+They don't need to touch the sheet. In the **Reviewed** tab, every saved fix has an
+**Undo** button — click it, confirm, and it's removed for everyone.
+
+Undo works by adding a "removed" row to the Links tab rather than deleting the
+original, so you keep the full history of what was done and what was taken back.
+That's why the Links tab grows rows that look like duplicates — that's intended.
+
+**Don't hand-delete rows from the Links tab** unless you're clearing something out
+deliberately. Use Undo in the app; it's safer and leaves a trail.

@@ -67,7 +67,8 @@ while ($true) {
       $status = '400 Bad Request'; $resp = '{"ok":false}'
       try {
         $entry = $body | ConvertFrom-Json
-        if ($entry -and $entry.technician) {
+        # accept a normal save (has a technician) OR an undo tombstone (has a target)
+        if ($entry -and ($entry.technician -or ($entry.type -eq 'removed' -and $entry.targetUid))) {
           $file = Join-Path $root 'manual_links.json'
           $list = @()
           if (Test-Path $file) {

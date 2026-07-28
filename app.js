@@ -260,6 +260,7 @@ async function loadLive() {
   RETURN_EVENTS = returns.filter((r) => r._ret);
   FILE_LINKS = await loadFileLinks();
   SHEET_LINKS = await loadSheetLinks();
+  reconcileOutbox();          // anything now in the sheet is confirmed saved
   const matched = matchRecords(checkouts, returns);
   applyConfigLinks(matched, returns);
   applyMarkReturned(matched);
@@ -315,20 +316,17 @@ function applyMarkReturned(checkouts) {
    pulled from the same three stores as links. Already-returned check-outs are
    skipped, so a mark that also came from the sheet won't double-apply. */
 function applySavedMarks(checkouts) {
-  (CONFIG.MANUAL_LINKS || []).concat(SHEET_LINKS, FILE_LINKS, getLocalLinks())
-    .filter((e) => e && e.type === "marked")
-    .forEach((e) => {
-      const c = findOpenCheckout(checkouts, e, "checkoutItem");
-      if (c) markCheckoutReturned(c, e.returnDate, e.note);
-    });
+  liveEntries().filter((e) => e.type === "marked").forEach((e) => {
+    const c = findOpenCheckout(checkouts, e, "checkoutItem");
+    if (c && markCheckoutReturned(c, e.returnDate, e.note)) c._savedUid = e.uid || "";
+  });
 }
 
 /* Reviewed, permanent pairings (tech + item + date) from three sources:
    CONFIG.MANUAL_LINKS, manual_links.json (saved by the Link button), and
    the browser-local fallback. */
 function applyConfigLinks(checkouts, returns) {
-  (CONFIG.MANUAL_LINKS || []).concat(SHEET_LINKS, FILE_LINKS, getLocalLinks())
-    .filter((L) => L && L.type !== "marked").forEach((L) => {
+  liveEntries().filter((L) => L.type !== "marked").forEach((L) => {
     const c = checkouts.find((x) => !x._ret &&
       normTool(x.technician) === normTool(L.technician) &&
       normTool(x.item) === normTool(L.checkoutItem) &&
@@ -337,7 +335,7 @@ function applyConfigLinks(checkouts, returns) {
       normTool(x.technician) === normTool(L.technician) &&
       normTool(x.item) === normTool(L.returnItem) &&
       (!L.returnDate || (x._ret && localISO(x._ret) === L.returnDate)));
-    if (c && ret) applyOneLink(c, ret);
+    if (c && ret) { applyOneLink(c, ret); c._savedUid = L.uid || ""; }
   });
 }
 
@@ -352,8 +350,60 @@ function applyOneLink(c, ret) {
    the dev server's POST /api/save-link. localStorage is the fallback if the
    file save isn't available (e.g. the app is hosted somewhere static). */
 const LS_LINKS_KEY = "cagetrack.manualLinks";
-function getLocalLinks() { try { return JSON.parse(localStorage.getItem(LS_LINKS_KEY) || "[]"); } catch (e) { return []; } }
+/* The OUTBOX: every save lands here first and only leaves once it's been seen
+   in the shared sheet (or written to disk). Nothing is ever lost to a failed
+   network call — worst case it sits here and retries. */
+function getLocalLinks() {
+  try {
+    const list = JSON.parse(localStorage.getItem(LS_LINKS_KEY) || "[]");
+    if (!Array.isArray(list)) return [];
+    let changed = false;
+    list.forEach((e) => { if (e && !e.uid) { e.uid = newUid(); changed = true; } });  // adopt pre-uid saves
+    if (changed) setLocalLinks(list);
+    return list;
+  } catch (e) { return []; }
+}
 function setLocalLinks(a) { try { localStorage.setItem(LS_LINKS_KEY, JSON.stringify(a)); } catch (e) {} }
+function dropFromOutbox(uid) {
+  if (!uid) return;
+  setLocalLinks(getLocalLinks().filter((e) => e.uid !== uid));
+}
+/* Short unique id so a save can be confirmed and later undone. */
+function newUid() {
+  return "u" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+/* Every saved resolution from all stores, with undone ones removed and
+   duplicates collapsed. This is the single source of truth for what has been
+   decided — config entries, the shared sheet, the disk file, and the outbox.
+
+   Undo works by appending a `removed` tombstone pointing at the original's
+   uid, because the shared sheet can only be appended to (never edited from
+   the app). Applying the tombstone here is what makes undo work everywhere. */
+function liveEntries() {
+  const all = (CONFIG.MANUAL_LINKS || []).concat(SHEET_LINKS, FILE_LINKS, getLocalLinks())
+    .filter(Boolean);
+  const undone = new Set();
+  all.forEach((e) => { if (e.type === "removed" && e.targetUid) undone.add(e.targetUid); });
+  const seen = new Set();
+  return all.filter((e) => {
+    if (e.type === "removed") return false;
+    if (!e.uid) return true;                       // config/legacy entries: always apply
+    if (undone.has(e.uid) || seen.has(e.uid)) return false;
+    seen.add(e.uid);
+    return true;
+  });
+}
+
+/* A save is "confirmed" once its uid shows up in the shared sheet. Drop those
+   from the outbox; whatever is left is genuinely not saved for everyone yet. */
+function reconcileOutbox() {
+  const inSheet = new Set(SHEET_LINKS.map((e) => e.uid).filter(Boolean));
+  if (!inSheet.size) return;
+  const box = getLocalLinks();
+  const left = box.filter((e) => !(e.uid && inSheet.has(e.uid)));
+  if (left.length !== box.length) setLocalLinks(left);
+}
 
 async function loadFileLinks() {
   try {
@@ -382,7 +432,8 @@ async function loadSheetLinks() {
     const col = (name) => h.indexOf(normTool(name));
     const iT = col("Technician"), iCI = col("Checkout Item"), iCD = col("Checkout Date"),
           iRI = col("Return Item"), iRD = col("Return Date"),
-          iTy = col("Type"), iN = col("Note");
+          iTy = col("Type"), iN = col("Note"),
+          iU = col("UID"), iTU = col("Target UID"), iSB = col("Saved By");
     if (iT < 0 || iCI < 0 || iRI < 0) return [];
     // normalize dates to yyyy-mm-dd regardless of how Sheets formatted them
     const nd = (v) => { const d = parseDate(v); return d ? localISO(d) : ""; };
@@ -391,7 +442,11 @@ async function loadSheetLinks() {
       checkoutDate: iCD > -1 ? nd(c[iCD]) : "",
       returnItem: c[iRI] || "", returnDate: iRD > -1 ? nd(c[iRD]) : "",
       type: iTy > -1 ? (c[iTy] || "") : "", note: iN > -1 ? (c[iN] || "") : "",
-    })).filter((l) => l.technician && l.checkoutItem);
+      uid: iU > -1 ? (c[iU] || "") : "", targetUid: iTU > -1 ? (c[iTU] || "") : "",
+      savedBy: iSB > -1 ? (c[iSB] || "") : "",
+    // "removed" tombstones carry no tech/item, so keep any row that has either
+    // an identity to match on or a target to undo
+    })).filter((l) => (l.technician && l.checkoutItem) || (l.type === "removed" && l.targetUid));
   } catch (e) { return []; }
 }
 
@@ -409,9 +464,11 @@ async function linkReturn(coId, retId) {
   renderAll();
 
   const where = await persistEntry(entry);
-  if (where === "sheet") toast("✓ Link saved to the shared sheet", true);
+  c._savedUid = entry.uid;      // so Undo shows immediately, not just after a refresh
+  renderAll();
+  if (where === "sheet") toast("✓ Link saved — syncing to the shared sheet", true);
   else if (where === "file") toast("✓ Link saved permanently (manual_links.json)", true);
-  else toast("Link saved in this browser only — shared save unavailable", false);
+  else toast("Link saved on this PC only — shared saving isn’t on yet", false);
 }
 
 /* Record a still-out check-out as returned when no return form was filed.
@@ -434,38 +491,73 @@ async function markReturned(coId, returnDate) {
   renderAll();
 
   const where = await persistEntry(entry);
-  if (where === "sheet") toast("✓ Marked returned — saved to the shared sheet", true);
+  c._savedUid = entry.uid;      // so Undo shows immediately, not just after a refresh
+  renderAll();
+  if (where === "sheet") toast("✓ Marked returned — syncing to the shared sheet", true);
   else if (where === "file") toast("✓ Marked returned — saved permanently", true);
-  else toast("Marked returned — saved in this browser only", false);
+  else toast("Marked returned — saved on this PC only, not shared yet", false);
 }
 
 /* Persist a resolution (link or mark) to the best available home and report
    which one took it: the shared Google Sheet, the local dev-server file, or
    this browser. Same pipeline for both features so they behave identically. */
 async function persistEntry(entry) {
+  if (!entry.uid) entry.uid = newUid();
+  entry.savedBy = getSavedBy();
+
+  // 0) Outbox FIRST — the save exists locally before any network call, so a
+  //    dropped connection can never lose it. It leaves the outbox only once
+  //    it's confirmed in the sheet (reconcileOutbox) or written to disk.
+  const box = getLocalLinks(); box.push(entry); setLocalLinks(box);
+  return sendEntry(entry);
+}
+
+/* Try to get one entry to a durable home. Does NOT touch the outbox on the way
+   in, so it's safe to call again when retrying something already queued. */
+async function sendEntry(entry) {
   // 1) shared Links tab via the Apps Script (everyone sees it; works hosted)
   const saveUrl = (CONFIG.LINKS && CONFIG.LINKS.SAVE_URL) || "";
   if (saveUrl) {
     try {
       // Apps Script can't answer a CORS preflight, so this is a "no-cors"
-      // simple POST (text/plain): it fires the save but the response is
-      // opaque. We report success optimistically; the next data refresh reads
-      // the tab back, which reconciles if anything didn't stick.
+      // simple POST (text/plain) and the response is opaque — we can't read
+      // whether it worked. So we DON'T claim success here: the entry stays in
+      // the outbox until a later refresh actually finds its uid in the sheet.
       await fetch(saveUrl, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(entry) });
-      SHEET_LINKS.push(entry);
       return "sheet";
     } catch (e) {}
   }
-  // 2) manual_links.json via the local dev server
+  // 2) manual_links.json via the local dev server (durable — leaves the outbox)
   try {
     const body = JSON.stringify(entry)
       .replace(/[^\x00-\x7f]/g, (ch) => "\\u" + ch.charCodeAt(0).toString(16).padStart(4, "0"));
     const res = await fetch("api/save-link", { method: "POST", headers: { "Content-Type": "application/json" }, body });
-    if (res.ok) { FILE_LINKS.push(entry); return "file"; }
+    if (res.ok) { FILE_LINKS.push(entry); dropFromOutbox(entry.uid); return "file"; }
   } catch (e) {}
-  // 3) this browser only (last resort)
-  const ls = getLocalLinks(); ls.push(entry); setLocalLinks(ls);
+  // 3) still in the outbox, waiting for sharing to be switched on
   return "local";
+}
+
+/* Who made this save — so a wrong one can be traced back and asked about.
+   Set once per browser; blank until someone fills it in. */
+const LS_WHO_KEY = "cagetrack.savedBy";
+function getSavedBy() { try { return localStorage.getItem(LS_WHO_KEY) || ""; } catch (e) { return ""; } }
+function setSavedBy(v) { try { localStorage.setItem(LS_WHO_KEY, v || ""); } catch (e) {} }
+
+/* Undo a saved link or mark. The shared sheet is append-only from the app, so
+   this appends a "removed" tombstone pointing at the original's uid; every
+   copy of the dashboard then skips that entry. No sheet editing, no commit. */
+async function undoSavedEntry(targetUid, label) {
+  if (!targetUid) return;
+  await persistEntry({
+    type: "removed", targetUid,
+    technician: "", checkoutItem: "", returnItem: "",
+    note: "Undone in-app" + (label ? ` — was: ${label}` : ""),
+    linkedOn: localISO(new Date()),
+  });
+  closeModal();
+  await refresh();                     // rebuild everything from the stores
+  toast("✓ Undone — the fix was removed for everyone", true);
 }
 
 /* ---------- Shared-saving status ----------
@@ -481,8 +573,8 @@ function renderSyncTag() {
   if (sharedSavingOn()) {
     if (pending) {
       tag.classList.add("tag-sync-pending");
-      txt.textContent = `Saving: shared · ${pending} to upload`;
-      tag.title = `${pending} save(s) made before sharing was on. Click to upload them.`;
+      txt.textContent = `Saving: shared · ${pending} syncing`;
+      tag.title = `${pending} save(s) not confirmed in the sheet yet. Usually clears within a minute — click to retry.`;
     } else {
       tag.classList.add("tag-sync-on");
       txt.textContent = "Saving: shared";
@@ -499,18 +591,30 @@ function renderSyncTag() {
    so nothing made in the meantime is lost. Only clears what actually uploaded. */
 async function syncPendingLocal() {
   const pending = getLocalLinks();
-  if (!pending.length) { toast("Nothing waiting to upload", true); return; }
-  if (!sharedSavingOn()) { openSyncModal(); return; }
-  let sent = 0;
+  if (!pending.length) { toast("Nothing waiting — everything is saved", true); return; }
+  let toSheet = 0, toFile = 0, stuck = 0;
   for (const entry of pending) {
-    const where = await persistEntry(Object.assign({}, entry, { _resync: true }));
-    if (where === "sheet") sent++;
-    else break;                       // stop on the first failure; keep the rest
+    const where = await sendEntry(entry);          // retries in place, no duplicate queueing
+    if (where === "sheet") toSheet++;              // stays queued until confirmed in the sheet
+    else if (where === "file") toFile++;           // durable now, already left the outbox
+    else stuck++;
   }
-  setLocalLinks(pending.slice(sent));  // drop only the ones that made it
   renderSyncTag();
-  toast(sent ? `✓ Uploaded ${sent} saved item${sent > 1 ? "s" : ""} to the shared sheet`
-             : "Couldn't reach the shared sheet — nothing uploaded", !!sent);
+  if (toSheet) toast(`Re-sent ${toSheet} to the shared sheet — confirming shortly`, true);
+  else if (toFile) toast(`✓ Saved ${toFile} item${toFile > 1 ? "s" : ""} to the file`, true);
+  else if (stuck) toast("Nowhere to save yet — shared saving still needs setting up", false);
+}
+
+/* Undo affects everyone, so confirm before doing it. */
+function openUndoConfirm(uid, label) {
+  openModal("Undo this fix?", `
+    <p class="sync-p">This removes the fix for <strong>${esc(label || "this item")}</strong> —
+    for you and everyone else using CageTrack.</p>
+    <p class="sync-p">The item goes back to how the sheet has it, and will show up in
+    <strong>Needs Review</strong> again if it doesn't match. Nothing in the Checkouts or
+    Returns tabs is changed.</p>
+    <button class="btn btn-primary btn-sm" id="undoConfirmBtn"
+      data-undo-uid="${esc(uid)}" data-undo-label="${esc(label || "")}">Yes, undo it</button>`);
 }
 
 function openSyncModal() {
@@ -519,10 +623,10 @@ function openSyncModal() {
   openModal(on ? "Shared saving is on" : "Turn on shared saving", on ? `
     <p class="sync-p">Links and “Mark returned” save to the <strong>Links</strong> tab of your
     Google Sheet, so you and anyone else using CageTrack see the same thing.</p>
-    ${pending ? `<p class="sync-p"><strong>${pending}</strong> save(s) were made on this computer
-    before sharing was on. Upload them so everyone gets them:</p>
-    <button class="btn btn-primary btn-sm" id="syncNowBtn">Upload ${pending} now</button>` :
-    `<p class="sync-p">Nothing is waiting to upload — you're fully in sync.</p>`}` : `
+    ${pending ? `<p class="sync-p"><strong>${pending}</strong> save(s) haven't been confirmed in
+    the sheet yet. That's normal for up to a minute after saving. If the number sticks, retry:</p>
+    <button class="btn btn-primary btn-sm" id="syncNowBtn">Retry ${pending} now</button>` :
+    `<p class="sync-p">Every save is confirmed in the shared sheet — you're fully in sync.</p>`}` : `
     <p class="sync-p">Right now, anything you link or mark returned <strong>stays on this
     computer only</strong>. Ethan won't see it, and it's lost if this browser is cleared.</p>
     <p class="sync-p">Turning on sharing is a one-time setup in your Google Sheet — about two
@@ -718,7 +822,8 @@ const COL = {
             plain: (r) => fmt(r._date), sortVal: (r) => (r._date ? r._date.getTime() : 0) },
   issue: { key: "issue", l: "Needs Review", f: (r) => `<span class="issue-chip issue-${r._issueType}">${esc(r._issue)}</span>`,
             plain: (r) => r._issue || "", sortVal: (r) => r._issue || "" },
-  resolution: { key: "resolution", l: "Resolution", f: (r) => `<span class="issue-chip issue-${r._issueType}">${esc(r._issueType === "linked" ? "Linked" : "Explained")}</span> <span class="res-note">${esc(r._issue)}</span>`,
+  resolution: { key: "resolution", l: "Resolution", f: (r) => `<span class="issue-chip issue-${r._issueType}">${esc(r._issueType === "linked" ? "Linked" : "Explained")}</span> <span class="res-note">${esc(r._issue)}</span>` +
+            (r._savedUid ? ` <button class="undo-btn" data-undo="${esc(r._savedUid)}" data-undo-label="${esc(r.technician + " — " + r.item)}" title="Remove this fix for everyone">Undo</button>` : ""),
             plain: (r) => r._issue || "", sortVal: (r) => r._issueType || "" },
 };
 
@@ -786,6 +891,13 @@ function buildReviewedRows() {
   ALL_RECORDS.filter((r) => r._matchType === "manual").forEach((r) => rows.push({
     id: r.id, item: r.item, technician: r.technician, branch: r.branch,
     _date: r._ret || r._out, _issue: `Linked to return “${r._matchedName}”`, _issueType: "linked",
+    _savedUid: r._savedUid || "",
+  }));
+  // tools recorded as returned with no return form filed
+  ALL_RECORDS.filter((r) => r._matchType === "marked").forEach((r) => rows.push({
+    id: r.id, item: r.item, technician: r.technician, branch: r.branch,
+    _date: r._ret || r._out, _issue: "Marked returned — no return form was filed",
+    _issueType: "explained", _savedUid: r._savedUid || "",
   }));
   // fuzzy auto-matches a human has confirmed via REVIEWED_OK
   ALL_RECORDS.filter((r) => r._matchType === "fuzzy" && isReviewedOk(r)).forEach((r) => rows.push({
@@ -1306,6 +1418,8 @@ function init() {
   });
 
   $("tblMain").addEventListener("click", (e) => {
+    const undoBtn = e.target.closest("[data-undo]");
+    if (undoBtn) { e.stopPropagation(); openUndoConfirm(undoBtn.dataset.undo, undoBtn.dataset.undoLabel); return; }
     const techBtn = e.target.closest(".tech-link");
     if (techBtn) { e.stopPropagation(); showTechModal(techBtn.dataset.tech); return; }
     const row = e.target.closest("tr[data-txid]");
@@ -1382,6 +1496,8 @@ function init() {
       return;
     }
     if (e.target.closest("#syncNowBtn")) { closeModal(); syncPendingLocal(); return; }
+    const undoOk = e.target.closest("#undoConfirmBtn");
+    if (undoOk) { undoSavedEntry(undoOk.dataset.undoUid, undoOk.dataset.undoLabel); return; }
     const mtab = e.target.closest(".mtab");
     if (mtab) { renderTechSubList(mtab.dataset.mtab); return; }
     const techBtn = e.target.closest(".tech-link");
