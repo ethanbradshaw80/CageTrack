@@ -226,6 +226,12 @@ td.col-item { font-weight: 700; color: var(--ink); }
 .resolve-note { margin-top: 14px; font-size: 12px; color: var(--muted);
   background: #f7f9fc; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
 .resolve-note code { background: #eef2f8; padding: 1px 5px; border-radius: 5px; }
+.mark-return { margin-top: 20px; padding-top: 4px; border-top: 1px solid var(--line); }
+.mark-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.mark-date { padding: 7px 10px; border: 1px solid var(--line); border-radius: 10px;
+  font: inherit; font-size: 13px; color: var(--navy-800); background: #fff; min-height: 38px; }
+.mark-row .btn-sm { white-space: nowrap; }
+html[data-theme="dark"] .mark-date { background: #0f1a2c; color: #e6eefb; border-color: var(--line); }
 .auto-badge { display: inline-block; font-size: 11px; font-weight: 700; color: #a16207;
   background: #fff5d6; padding: 2px 8px; border-radius: 999px; margin-left: 6px; }
 .data-health { color: #a16207; font-weight: 700; }

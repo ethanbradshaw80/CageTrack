@@ -30,7 +30,7 @@
    ============================================================ */
 
 var TAB_NAME = 'Links';
-var HEADERS = ['Technician', 'Checkout Item', 'Checkout Date', 'Return Item', 'Return Date', 'Linked On'];
+var HEADERS = ['Technician', 'Checkout Item', 'Checkout Date', 'Return Item', 'Return Date', 'Type', 'Note', 'Linked On'];
 
 function doPost(e) {
   try {
@@ -42,6 +42,8 @@ function doPost(e) {
       data.checkoutDate || '',
       data.returnItem  || '',
       data.returnDate  || '',
+      data.type        || 'link',   // 'link' (paired to a real return) or 'marked' (no return form filed)
+      data.note        || '',
       data.linkedOn    || new Date().toISOString().slice(0, 10)
     ]);
     return jsonOut_({ ok: true });

@@ -263,43 +263,72 @@ async function loadLive() {
   const matched = matchRecords(checkouts, returns);
   applyConfigLinks(matched, returns);
   applyMarkReturned(matched);
+  applySavedMarks(matched);
   return matched;
 }
 
-/* CONFIG.MARK_RETURNED: tools that physically came back but never had a return
-   form filed. For each, we clear the check-out (out of "Currently Out") and
-   synthesize a return event so it appears in Returns history — flagged _marked
-   so it's never mistaken for a real filed return. Matched on tech + item +
-   optional check-out date. */
+/* Record ONE check-out as returned when no return form was ever filed:
+   clear the check-out (out of "Currently Out") and synthesize a return event
+   so it shows in Returns history — flagged _marked so it's never mistaken for
+   a real filed return. Shared by config marks, saved marks, and the in-app
+   "Mark returned" button. */
+function markCheckoutReturned(c, returnDate, note) {
+  if (!c || c._ret) return false;
+  const rd = returnDate ? parseDate(returnDate) : null;
+  c.returnTime = returnDate || "";
+  c._ret = rd;
+  c._matchType = "marked";
+  c._matchNote = note || "";
+  c.status = deriveStatus(c);
+  const synth = {
+    id: "MARK-" + (_idc++),
+    technician: c.technician, nick: c.nick, branch: c.branch,
+    item: c.item, checkoutTime: "", returnTime: returnDate || "",
+    _out: null, _ret: rd, _used: true, _marked: true, _note: note || "",
+    status: "Returned", _due: null,
+  };
+  RETURN_EVENTS.push(synth);
+  RETURN_BY_ID[synth.id] = synth;
+  return true;
+}
+
+/* Find the still-out check-out an entry refers to (tech + item + optional
+   check-out date). `itemKey` lets config marks use `item` and saved marks
+   use `checkoutItem`. */
+function findOpenCheckout(checkouts, e, itemKey) {
+  const item = e[itemKey];
+  return checkouts.find((x) => !x._ret &&
+    normTool(x.technician) === normTool(e.technician) &&
+    normTool(x.item) === normTool(item) &&
+    (!e.checkoutDate || (x._out && localISO(x._out) === e.checkoutDate)));
+}
+
+/* CONFIG.MARK_RETURNED — hand-listed in config.js (uses `item`). */
 function applyMarkReturned(checkouts) {
   (CONFIG.MARK_RETURNED || []).forEach((M) => {
-    const c = checkouts.find((x) => !x._ret &&
-      normTool(x.technician) === normTool(M.technician) &&
-      normTool(x.item) === normTool(M.item) &&
-      (!M.checkoutDate || (x._out && localISO(x._out) === M.checkoutDate)));
-    if (!c) return;
-    const rd = M.returnDate ? parseDate(M.returnDate) : null;
-    c.returnTime = M.returnDate || "";
-    c._ret = rd;
-    c._matchType = "marked";
-    c._matchNote = M.note || "";
-    c.status = deriveStatus(c);
-    // synthesize the return row so it shows in Returns / tool history
-    RETURN_EVENTS.push({
-      id: "MARK-" + (_idc++),
-      technician: c.technician, nick: c.nick, branch: c.branch,
-      item: c.item, checkoutTime: "", returnTime: M.returnDate || "",
-      _out: null, _ret: rd, _used: true, _marked: true, _note: M.note || "",
-      status: "Returned", _due: null,
-    });
+    const c = findOpenCheckout(checkouts, M, "item");
+    if (c) markCheckoutReturned(c, M.returnDate, M.note);
   });
+}
+
+/* Marks saved from the in-app "Mark returned" button (uses `checkoutItem`),
+   pulled from the same three stores as links. Already-returned check-outs are
+   skipped, so a mark that also came from the sheet won't double-apply. */
+function applySavedMarks(checkouts) {
+  (CONFIG.MANUAL_LINKS || []).concat(SHEET_LINKS, FILE_LINKS, getLocalLinks())
+    .filter((e) => e && e.type === "marked")
+    .forEach((e) => {
+      const c = findOpenCheckout(checkouts, e, "checkoutItem");
+      if (c) markCheckoutReturned(c, e.returnDate, e.note);
+    });
 }
 
 /* Reviewed, permanent pairings (tech + item + date) from three sources:
    CONFIG.MANUAL_LINKS, manual_links.json (saved by the Link button), and
    the browser-local fallback. */
 function applyConfigLinks(checkouts, returns) {
-  (CONFIG.MANUAL_LINKS || []).concat(SHEET_LINKS, FILE_LINKS, getLocalLinks()).forEach((L) => {
+  (CONFIG.MANUAL_LINKS || []).concat(SHEET_LINKS, FILE_LINKS, getLocalLinks())
+    .filter((L) => L && L.type !== "marked").forEach((L) => {
     const c = checkouts.find((x) => !x._ret &&
       normTool(x.technician) === normTool(L.technician) &&
       normTool(x.item) === normTool(L.checkoutItem) &&
@@ -352,7 +381,8 @@ async function loadSheetLinks() {
     const h = rows[0].map((x) => normTool(x));
     const col = (name) => h.indexOf(normTool(name));
     const iT = col("Technician"), iCI = col("Checkout Item"), iCD = col("Checkout Date"),
-          iRI = col("Return Item"), iRD = col("Return Date");
+          iRI = col("Return Item"), iRD = col("Return Date"),
+          iTy = col("Type"), iN = col("Note");
     if (iT < 0 || iCI < 0 || iRI < 0) return [];
     // normalize dates to yyyy-mm-dd regardless of how Sheets formatted them
     const nd = (v) => { const d = parseDate(v); return d ? localISO(d) : ""; };
@@ -360,6 +390,7 @@ async function loadSheetLinks() {
       technician: c[iT] || "", checkoutItem: c[iCI] || "",
       checkoutDate: iCD > -1 ? nd(c[iCD]) : "",
       returnItem: c[iRI] || "", returnDate: iRD > -1 ? nd(c[iRD]) : "",
+      type: iTy > -1 ? (c[iTy] || "") : "", note: iN > -1 ? (c[iN] || "") : "",
     })).filter((l) => l.technician && l.checkoutItem);
   } catch (e) { return []; }
 }
@@ -377,37 +408,64 @@ async function linkReturn(coId, retId) {
   closeModal();
   renderAll();
 
-  // persist, best home first:
-  // 1) the shared Links tab in the Google Sheet (everyone sees it; works hosted)
+  const where = await persistEntry(entry);
+  if (where === "sheet") toast("✓ Link saved to the shared sheet", true);
+  else if (where === "file") toast("✓ Link saved permanently (manual_links.json)", true);
+  else toast("Link saved in this browser only — shared save unavailable", false);
+}
+
+/* Record a still-out check-out as returned when no return form was filed.
+   Called by the in-app "Mark returned" button. Applies immediately, then
+   saves through the same three stores as a link (tagged type:"marked"). */
+async function markReturned(coId, returnDate) {
+  const c = RECORD_BY_ID[coId];
+  if (!c || c._ret) return;
+  const rDate = returnDate || localISO(new Date());
+  const note = "Marked returned in-app — no return form was filed";
+  const entry = {
+    type: "marked",
+    technician: c.technician,
+    checkoutItem: c.item, checkoutDate: c._out ? localISO(c._out) : "",
+    returnItem: c.item, returnDate: rDate,   // returnItem = same tool keeps the sheet columns populated
+    note, linkedOn: localISO(new Date()),
+  };
+  markCheckoutReturned(c, rDate, note);
+  closeModal();
+  renderAll();
+
+  const where = await persistEntry(entry);
+  if (where === "sheet") toast("✓ Marked returned — saved to the shared sheet", true);
+  else if (where === "file") toast("✓ Marked returned — saved permanently", true);
+  else toast("Marked returned — saved in this browser only", false);
+}
+
+/* Persist a resolution (link or mark) to the best available home and report
+   which one took it: the shared Google Sheet, the local dev-server file, or
+   this browser. Same pipeline for both features so they behave identically. */
+async function persistEntry(entry) {
+  // 1) shared Links tab via the Apps Script (everyone sees it; works hosted)
   const saveUrl = (CONFIG.LINKS && CONFIG.LINKS.SAVE_URL) || "";
   if (saveUrl) {
     try {
       // Apps Script can't answer a CORS preflight, so this is a "no-cors"
       // simple POST (text/plain): it fires the save but the response is
-      // opaque. We optimistically show success; the next data refresh reads
-      // the Links tab back, which reconciles if anything didn't stick.
+      // opaque. We report success optimistically; the next data refresh reads
+      // the tab back, which reconciles if anything didn't stick.
       await fetch(saveUrl, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(entry) });
       SHEET_LINKS.push(entry);
-      toast("✓ Link saved to the shared sheet", true);
-      return;
+      return "sheet";
     } catch (e) {}
   }
   // 2) manual_links.json via the local dev server
-  let saved = false;
   try {
     const body = JSON.stringify(entry)
       .replace(/[^\x00-\x7f]/g, (ch) => "\\u" + ch.charCodeAt(0).toString(16).padStart(4, "0"));
     const res = await fetch("api/save-link", { method: "POST", headers: { "Content-Type": "application/json" }, body });
-    saved = res.ok;
+    if (res.ok) { FILE_LINKS.push(entry); return "file"; }
   } catch (e) {}
-  if (saved) {
-    FILE_LINKS.push(entry);
-    toast("✓ Link saved permanently (manual_links.json)", true);
-    return;
-  }
   // 3) this browser only (last resort)
   const ls = getLocalLinks(); ls.push(entry); setLocalLinks(ls);
-  toast("Link saved in this browser only — shared save unavailable", false);
+  return "local";
 }
 
 /* small confirmation toast */
@@ -981,7 +1039,16 @@ function showTxModal(id) {
       <dt>Time Out</dt><dd>${tail}</dd>
     </dl>
     <div class="m-sub">Tool history (${events.length})</div>
-    <div class="hist-list">${histHtml}</div>`);
+    <div class="hist-list">${histHtml}</div>` +
+    (r._ret ? "" : `
+    <div class="mark-return">
+      <div class="m-sub">Came back but no return was filed?</div>
+      <div class="mark-row">
+        <input type="date" id="markDate" class="mark-date" value="${localISO(new Date())}" max="${localISO(new Date())}" />
+        <button class="btn btn-primary btn-sm" data-mark-co="${esc(r.id)}">Mark returned</button>
+      </div>
+      <div class="resolve-note">Records this tool as returned so it leaves “Currently Out” and shows in Returns — flagged as manually marked (no return form was filed). Saved for everyone, like a link.</div>
+    </div>`));
 }
 
 /* ============================================================
@@ -1233,6 +1300,12 @@ function init() {
   $("modalBody").addEventListener("click", (e) => {
     const linkBtn = e.target.closest("[data-link-co]");
     if (linkBtn) { linkReturn(linkBtn.dataset.linkCo, linkBtn.dataset.linkRet); return; }
+    const markBtn = e.target.closest("[data-mark-co]");
+    if (markBtn) {
+      const d = document.getElementById("markDate");
+      markReturned(markBtn.dataset.markCo, d && d.value ? d.value : "");
+      return;
+    }
     const mtab = e.target.closest(".mtab");
     if (mtab) { renderTechSubList(mtab.dataset.mtab); return; }
     const techBtn = e.target.closest(".tech-link");
