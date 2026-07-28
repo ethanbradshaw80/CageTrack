@@ -91,6 +91,12 @@ svg.ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-wid
 .tag-mock { background: rgba(253,230,138,.18); color: #fcd34d; }
 .tag-live { background: rgba(34,197,94,.18); color: #4ade80; }
 .tag-live .dot { box-shadow: 0 0 0 3px rgba(74,222,128,.25); }
+/* Shared-saving status — tells you at a glance whether a save reaches everyone */
+#syncTag { border: 0; cursor: pointer; font-family: inherit; white-space: nowrap; }
+.tag-sync-on { background: rgba(34,197,94,.18); color: #4ade80; }
+.tag-sync-on .dot { box-shadow: 0 0 0 3px rgba(74,222,128,.25); }
+.tag-sync-off { background: rgba(248,113,113,.18); color: #fca5a5; }
+.tag-sync-pending { background: rgba(253,230,138,.18); color: #fcd34d; }
 
 /* ============ BUTTONS ============ */
 .btn { display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: 10px;
@@ -226,6 +232,11 @@ td.col-item { font-weight: 700; color: var(--ink); }
 .resolve-note { margin-top: 14px; font-size: 12px; color: var(--muted);
   background: #f7f9fc; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
 .resolve-note code { background: #eef2f8; padding: 1px 5px; border-radius: 5px; }
+.sync-p { font-size: 13.5px; line-height: 1.6; color: var(--ink); margin: 0 0 12px; }
+.sync-steps { font-size: 13.5px; line-height: 1.7; color: var(--ink); margin: 0 0 12px; padding-left: 20px; }
+.sync-steps li { margin-bottom: 6px; }
+.sync-p code, .sync-steps code { background: #eef2f8; padding: 1px 5px; border-radius: 5px; font-size: 12.5px; }
+html[data-theme="dark"] .sync-p code, html[data-theme="dark"] .sync-steps code { background: #1b2740; }
 .mark-return { margin-top: 20px; padding-top: 4px; border-top: 1px solid var(--line); }
 .mark-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .mark-date { padding: 7px 10px; border: 1px solid var(--line); border-radius: 10px;

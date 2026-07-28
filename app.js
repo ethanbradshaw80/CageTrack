@@ -468,6 +468,77 @@ async function persistEntry(entry) {
   return "local";
 }
 
+/* ---------- Shared-saving status ----------
+   A save that only lands in one browser is invisible to everyone else, so the
+   header says plainly which mode you're in and how many saves are stranded. */
+function sharedSavingOn() { return !!((CONFIG.LINKS && CONFIG.LINKS.SAVE_URL) || "").trim(); }
+
+function renderSyncTag() {
+  const tag = $("syncTag"), txt = $("syncText");
+  if (!tag || !txt) return;
+  const pending = getLocalLinks().length;
+  tag.classList.remove("tag-sync-on", "tag-sync-off", "tag-sync-pending");
+  if (sharedSavingOn()) {
+    if (pending) {
+      tag.classList.add("tag-sync-pending");
+      txt.textContent = `Saving: shared · ${pending} to upload`;
+      tag.title = `${pending} save(s) made before sharing was on. Click to upload them.`;
+    } else {
+      tag.classList.add("tag-sync-on");
+      txt.textContent = "Saving: shared";
+      tag.title = "Links and marks save to the shared sheet — everyone sees them.";
+    }
+  } else {
+    tag.classList.add("tag-sync-off");
+    txt.textContent = pending ? `Saving: this PC only · ${pending}` : "Saving: this PC only";
+    tag.title = "Shared saving isn't set up — saves stay in this browser. Click for setup steps.";
+  }
+}
+
+/* Upload saves that were stranded in this browser before sharing was turned on,
+   so nothing made in the meantime is lost. Only clears what actually uploaded. */
+async function syncPendingLocal() {
+  const pending = getLocalLinks();
+  if (!pending.length) { toast("Nothing waiting to upload", true); return; }
+  if (!sharedSavingOn()) { openSyncModal(); return; }
+  let sent = 0;
+  for (const entry of pending) {
+    const where = await persistEntry(Object.assign({}, entry, { _resync: true }));
+    if (where === "sheet") sent++;
+    else break;                       // stop on the first failure; keep the rest
+  }
+  setLocalLinks(pending.slice(sent));  // drop only the ones that made it
+  renderSyncTag();
+  toast(sent ? `✓ Uploaded ${sent} saved item${sent > 1 ? "s" : ""} to the shared sheet`
+             : "Couldn't reach the shared sheet — nothing uploaded", !!sent);
+}
+
+function openSyncModal() {
+  const pending = getLocalLinks().length;
+  const on = sharedSavingOn();
+  openModal(on ? "Shared saving is on" : "Turn on shared saving", on ? `
+    <p class="sync-p">Links and “Mark returned” save to the <strong>Links</strong> tab of your
+    Google Sheet, so you and anyone else using CageTrack see the same thing.</p>
+    ${pending ? `<p class="sync-p"><strong>${pending}</strong> save(s) were made on this computer
+    before sharing was on. Upload them so everyone gets them:</p>
+    <button class="btn btn-primary btn-sm" id="syncNowBtn">Upload ${pending} now</button>` :
+    `<p class="sync-p">Nothing is waiting to upload — you're fully in sync.</p>`}` : `
+    <p class="sync-p">Right now, anything you link or mark returned <strong>stays on this
+    computer only</strong>. Ethan won't see it, and it's lost if this browser is cleared.</p>
+    <p class="sync-p">Turning on sharing is a one-time setup in your Google Sheet — about two
+    minutes. Full click-by-click steps are in <code>SETUP-SHARED-SAVING.md</code>. The short version:</p>
+    <ol class="sync-steps">
+      <li>Open the CageTrack Google Sheet → <strong>Extensions → Apps Script</strong></li>
+      <li>Paste in the contents of <code>apps-script/Code.gs</code>, then Save</li>
+      <li><strong>Deploy → New deployment → Web app</strong>; set <em>Execute as: Me</em> and
+          <em>Who has access: Anyone</em>, then Deploy and approve</li>
+      <li>Copy the <strong>Web app URL</strong> (it ends in <code>/exec</code>)</li>
+      <li>Paste it into <code>config.js</code> at <code>LINKS.SAVE_URL</code></li>
+    </ol>
+    ${pending ? `<p class="sync-p"><strong>${pending}</strong> save(s) are waiting on this
+    computer. Once the URL is in, come back here and upload them — they won't be lost.</p>` : ""}`);
+}
+
 /* small confirmation toast */
 function toast(msg, ok) {
   const t = document.createElement("div");
@@ -1063,6 +1134,7 @@ function renderAll() {
   renderTopTechList(checkouts);
   renderOverdueByTech(checkouts);
   renderTopTools(checkouts);
+  renderSyncTag();
   $("rowCount").textContent = `${checkouts.length} check-outs · ${returns.length} returns`;
 
   // Freshness: the newest entry across both sheets (global, not filtered)
@@ -1294,6 +1366,9 @@ function init() {
     if (rec) showTxModal(rec.id);
   });
 
+  // Shared-saving status chip
+  $("syncTag").addEventListener("click", openSyncModal);
+
   // Error banner retry
   $("retryBtn").addEventListener("click", refresh);
   $("topTechList").addEventListener("click", (e) => { const row = e.target.closest(".toplist-row"); if (row) showTechModal(row.dataset.tech); });
@@ -1306,6 +1381,7 @@ function init() {
       markReturned(markBtn.dataset.markCo, d && d.value ? d.value : "");
       return;
     }
+    if (e.target.closest("#syncNowBtn")) { closeModal(); syncPendingLocal(); return; }
     const mtab = e.target.closest(".mtab");
     if (mtab) { renderTechSubList(mtab.dataset.mtab); return; }
     const techBtn = e.target.closest(".tech-link");
