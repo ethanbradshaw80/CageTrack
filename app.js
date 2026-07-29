@@ -413,7 +413,7 @@ function reconcileOutbox() {
 
 async function loadFileLinks() {
   try {
-    const res = await fetch("manual_links.json?_cb=" + Date.now(), { cache: "no-store" });
+    const res = await fetchWithTimeout("manual_links.json?_cb=" + Date.now(), { cache: "no-store" }, 5000);
     if (!res.ok) return [];
     const list = await res.json();
     return Array.isArray(list) ? list : [];
@@ -428,7 +428,7 @@ async function loadSheetLinks() {
     const base = CONFIG.GOOGLE_SHEET_CHECKOUTS_CSV_URL || "";
     if (!base.includes("sheet=")) return [];
     const url = base.replace(/sheet=[^&]+/, "sheet=" + encodeURIComponent(tab));
-    const res = await fetch(url + "&_cb=" + Date.now(), { cache: "no-store" });
+    const res = await fetchWithTimeout(url + "&_cb=" + Date.now(), { cache: "no-store" });
     if (!res.ok) return [];
     const text = await res.text();
     if (text.slice(0, 200).includes("<html")) return [];   // tab doesn't exist yet
@@ -529,7 +529,7 @@ async function sendEntry(entry) {
       // simple POST (text/plain) and the response is opaque — we can't read
       // whether it worked. So we DON'T claim success here: the entry stays in
       // the outbox until a later refresh actually finds its uid in the sheet.
-      await fetch(saveUrl, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(entry) });
+      await fetchWithTimeout(saveUrl, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(entry) }, 12000);
       return "sheet";
     } catch (e) {}
   }
@@ -537,7 +537,7 @@ async function sendEntry(entry) {
   try {
     const body = JSON.stringify(entry)
       .replace(/[^\x00-\x7f]/g, (ch) => "\\u" + ch.charCodeAt(0).toString(16).padStart(4, "0"));
-    const res = await fetch("api/save-link", { method: "POST", headers: { "Content-Type": "application/json" }, body });
+    const res = await fetchWithTimeout("api/save-link", { method: "POST", headers: { "Content-Type": "application/json" }, body }, 8000);
     if (res.ok) { FILE_LINKS.push(entry); dropFromOutbox(entry.uid); return "file"; }
   } catch (e) {}
   // 3) still in the outbox, waiting for sharing to be switched on
@@ -659,6 +659,28 @@ function toast(msg, ok) {
   setTimeout(() => { t.classList.remove("show"); setTimeout(() => t.remove(), 350); }, 3500);
 }
 
+/* Fetch that gives up instead of waiting forever.
+   Google's sheet endpoint can stall — accepting the connection but never
+   answering. A plain fetch has no timeout, so that hangs the whole refresh:
+   the spinner spins, nothing rejects, and the error banner never shows. This
+   turns a stall into an ordinary failure that retry and the banner can see. */
+/* 6s per attempt: Google normally answers in well under a second, so this is
+   generous for a slow connection while keeping the worst case (3 tries plus
+   backoff) to roughly 22s before the banner appears. */
+const FETCH_TIMEOUT_MS = 6000;
+async function fetchWithTimeout(url, opts, ms) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), ms || FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, Object.assign({}, opts || {}, { signal: ctl.signal }));
+  } catch (e) {
+    if (e && e.name === "AbortError") {
+      throw new Error("timed out after " + Math.round((ms || FETCH_TIMEOUT_MS) / 1000) + "s");
+    }
+    throw e;
+  } finally { clearTimeout(timer); }
+}
+
 /* Fetch with automatic retries — absorbs transient network/Google blips
    at the request level so they never surface to the user. */
 async function fetchWithRetry(url, tries) {
@@ -666,7 +688,7 @@ async function fetchWithRetry(url, tries) {
   for (let i = 0; i < tries; i++) {
     try {
       const sep = url.includes("?") ? "&" : "?";
-      const res = await fetch(url + sep + "_cb=" + Date.now(), { cache: "no-store" });
+      const res = await fetchWithTimeout(url + sep + "_cb=" + Date.now(), { cache: "no-store" });
       if (!res.ok) throw new Error("HTTP " + res.status);
       return res;
     } catch (e) {
@@ -674,7 +696,7 @@ async function fetchWithRetry(url, tries) {
       if (i < tries - 1) await new Promise((r) => setTimeout(r, 1200 * (i + 1)));
     }
   }
-  throw new Error("Failed to fetch sheet after " + tries + " tries: " + (lastErr && lastErr.message));
+  throw new Error("Couldn't load the sheet after " + tries + " tries (" + (lastErr && lastErr.message) + ")");
 }
 
 async function loadSheet(url, colmap) {
