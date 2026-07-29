@@ -7,11 +7,7 @@ check-out/return form) and updates itself automatically.
 **Live at:** https://ethanbradshaw80.github.io/CageTrack/
 **Status:** In daily use. Reads the team's Google Sheet, auto-refreshes every 60s.
 
-> Internal Peterman Brothers tool. The repository is **public** — GitHub Pages
-> requires it on a free plan. The site carries `noindex`/`robots.txt` so it
-> stays out of search results, but anyone with the link can open it, and the
-> code (including technician names in `config.js` review rules) is publicly
-> readable. No customer data, pricing, or credentials belong in this repo.
+> Internal Peterman Brothers tool.
 
 ---
 
