@@ -6,9 +6,35 @@
 **Date:** 2026-06-29
 **Audience:** Software development / engineering team scoping a production build
 **Reference implementation:** A working browser-based prototype exists
-(private repo `ethanbradshaw80/CageTrack`). This document describes the
+(repo `ethanbradshaw80/CageTrack`). This document describes the
 problem, the intended behavior, and — in depth — the data requirements, using
 the prototype as a proof of concept rather than the final architecture.
+
+---
+
+> ### ⚠️ Read this first — what changed after 2026-06-29
+>
+> This spec is kept as the original scoping document. The tool has moved on
+> since it was written; the problem statement and data requirements still hold,
+> but these points are out of date:
+>
+> - **The repo is public, not private.** GitHub Pages requires it on a free
+>   plan. The site is `noindex`ed but is reachable by anyone with the link.
+> - **It's hosted and in daily use** at
+>   https://ethanbradshaw80.github.io/CageTrack/ by three office users — no
+>   longer a localhost prototype.
+> - **Exceptions are resolved in the app, not in config.** Link, Mark returned
+>   and Undo are buttons, and they save for all users to a `Links` tab in the
+>   same Google Sheet via a Google Apps Script web app. §6.8 describes only the
+>   original link-by-hand behaviour.
+> - **The shared store is an append-only log.** Undo appends a `removed`
+>   tombstone referencing the original's `UID` rather than deleting a row.
+>   Saves are queued locally and only cleared once confirmed in the sheet.
+> - **A `Reviewed` tab** now records resolved exceptions and the reason.
+> - **Styling follows the Peterman Brothers Brand Guide** (PANTONE 540 / 186,
+>   self-hosted Zilla Slab).
+>
+> For current behaviour, `README.md` at the repo root is authoritative.
 
 ---
 

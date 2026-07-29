@@ -1,32 +1,31 @@
 /* ============================================================
-   CageTrack — shared link saver (Google Apps Script)
+   CageTrack — shared resolution saver (Google Apps Script)
 
-   This is the tiny free "server" that lets EVERYONE who uses the
-   dashboard (hosted or local) save a Needs-Review link to the same
-   Google Sheet, so all users see the same links.
+   STATUS: deployed and live since 2026-07-28. The dashboard points at
+   it via LINKS.SAVE_URL in config.js. This file is the source of truth
+   for what's running — if you edit it here, redeploy (see below).
 
-   It writes each saved link as a new row in a "Links" tab of the
-   SAME spreadsheet the dashboard already reads.
+   This is the tiny free "server" that lets everyone using the dashboard
+   (hosted or local) save to the same Google Sheet, so all users see the
+   same fixes. It appends each one as a row in a "Links" tab of the SAME
+   spreadsheet the dashboard already reads.
 
-   ---- ONE-TIME SETUP (about 3 minutes) ----
-   1. Open your CageTrack Google Sheet.
-   2. Menu: Extensions > Apps Script.
-   3. Delete whatever is in the editor, paste ALL of this file, Save.
-   4. Click "Deploy" (top right) > "New deployment".
-   5. Gear icon > choose type: "Web app".
-   6. Settings:
-        - Description:  CageTrack link saver
-        - Execute as:   Me (your Google account)
-        - Who has access: Anyone
-   7. Click "Deploy". Approve the permissions when Google asks
-      (it's your own script writing to your own sheet).
-   8. Copy the "Web app URL" it shows (ends in /exec).
-   9. Paste that URL into config.js  ->  LINKS.SAVE_URL  between the quotes.
-  10. Done. Test by linking an item in Needs Review; a new row should
-      appear in the "Links" tab within a few seconds.
+   The log is APPEND-ONLY. An undo doesn't delete the original row — the
+   dashboard sends a row with type "removed" and targetUid set to the
+   original's UID, and every dashboard then skips that entry. So rows
+   that look like duplicates are expected; don't prune them by hand.
 
-   NOTE: if you ever change this script, you must Deploy > "Manage
-   deployments" > edit > "New version" for the change to take effect.
+   ---- REDEPLOYING AFTER AN EDIT ----
+   Changes do NOT go live on save. Deploy > "Manage deployments" >
+   pencil icon > Version: "New version" > Deploy. That keeps the same
+   URL, so config.js needs no change.
+
+   ---- DEPLOYING FROM SCRATCH ----
+   Full click-by-click steps (including the "Google hasn't verified this
+   app" prompt) are in SETUP-SHARED-SAVING.md at the repo root. Short
+   version: Extensions > Apps Script, paste this file, Deploy > New
+   deployment > Web app, Execute as "Me", Who has access "Anyone", then
+   put the /exec URL into config.js -> LINKS.SAVE_URL.
    ============================================================ */
 
 var TAB_NAME = 'Links';

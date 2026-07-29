@@ -1,14 +1,17 @@
-# Turn on shared saving (one-time, ~2 minutes)
+# Shared saving — setup reference
 
-**What this fixes:** right now, when you or Ethan click **Link** or **Mark returned**,
-the result is saved *only in that person's browser*. The other person never sees it,
-and it's gone if the browser cache is cleared.
+> **✅ Already done.** Shared saving was deployed on 2026-07-28 and is live:
+> `LINKS.SAVE_URL` is filled in, the **Links** tab exists, and resolutions save
+> for everyone. The header chip reads **"Saving: shared."**
+>
+> Keep these steps for redeploying, troubleshooting, or rotating the URL.
 
-After this setup, both of you save to the same **Links** tab in the CageTrack Google
-Sheet — one shared record, from any computer, including the hosted site.
+**What it does:** when anyone clicks **Link**, **Mark returned**, or **Undo**, the
+result is written to a **Links** tab in the CageTrack Google Sheet — one shared
+record, from any computer, including the hosted site. Without it, resolutions
+would save only in the browser that made them.
 
-You have to do this part yourself because it runs inside your Google account.
-I can't sign in as you or approve permissions on your company's sheet.
+This runs inside Ethan's Google account, so only he can (re)deploy it.
 
 ---
 
@@ -73,6 +76,10 @@ Google will ask you to authorize it (it's your own script writing to your own sh
    ```
 
 ---
+
+> **Rotating the URL:** deploying a *new version* keeps the same URL. To get a
+> brand-new URL (and kill the old one), create a **new deployment** instead,
+> then paste the new `/exec` URL into `config.js` and push.
 
 ## Step 6 — Confirm it worked
 

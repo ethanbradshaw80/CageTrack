@@ -33,12 +33,12 @@ const CONFIG = {
   // dashboard update itself as techs submit the form — no Refresh click needed.
   AUTO_REFRESH_SECONDS: 60,
 
-  // ----- SHARED LINK SAVING (works on the hosted site for everyone) -----
-  // Links made in Needs Review are stored in a "Links" tab of the same
-  // Google Sheet, written by a tiny Google Apps Script web app (see
-  // apps-script/Code.gs for the code and setup steps). Once SAVE_URL is
-  // filled in, anyone using the dashboard — hosted or local — saves links
-  // to the shared sheet and everyone sees them.
+  // ----- SHARED SAVING (live — works on the hosted site for everyone) -----
+  // Links, "Mark returned" and Undo are stored in a "Links" tab of the same
+  // Google Sheet, written by a small Google Apps Script web app (source in
+  // apps-script/Code.gs; deploy/troubleshoot steps in SETUP-SHARED-SAVING.md).
+  // The tab is an append-only log: an undo adds a "removed" row pointing at
+  // the original's UID rather than deleting anything. Don't hand-edit it.
   LINKS: {
     SAVE_URL: "https://script.google.com/macros/s/AKfycbwjjn9SwXq-rRxFGbNOE-AJWASdSsO3Gx7wEiZPRl16AIYd1PEp8PBBINE6HDf6zVAdWg/exec",
     TAB_NAME: "Links",  // the tab the script writes to / the app reads from
