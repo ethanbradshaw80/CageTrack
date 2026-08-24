@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow" />
   <title>CageTrack — Peterman Brothers</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=20260824a" />
   <script>
     // set theme before paint to avoid a flash
     try {
@@ -224,8 +224,13 @@
     </div>
   </div>
 
-  <script src="config.js"></script>
-  <script src="mockData.js"></script>
-  <script src="app.js"></script>
+  <!-- The ?v= stamp is a cache-buster. GitHub Pages serves these files with
+       Cache-Control: max-age=600, so without it a change to the review rules
+       in config.js can take 10+ minutes (or a hard refresh) to reach anyone.
+       BUMP THIS STAMP whenever config.js, app.js or styles.css changes.
+       Fonts are referenced from inside styles.css, so they stay cached. -->
+  <script src="config.js?v=20260824a"></script>
+  <script src="mockData.js?v=20260824a"></script>
+  <script src="app.js?v=20260824a"></script>
 </body>
 </html>

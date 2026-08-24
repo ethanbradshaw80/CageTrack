@@ -96,6 +96,17 @@ The local dev server also accepts `POST /api/save-link`, which writes to
 `manual_links.json`. That's a fallback for offline/local work; the shared sheet
 is the real store.
 
+## Deploying a change
+
+Push to `main` and GitHub Pages rebuilds within a minute or two.
+
+**Bump the `?v=` stamp in `index.html` whenever you change `config.js`,
+`app.js` or `styles.css`.** Pages serves those files with a 10-minute browser
+cache and the tags carry a version query to defeat it — without a bump, people
+keep seeing the old rules until their cache expires or they hard-refresh
+(`Ctrl+Shift+R`). All three tags share one stamp; any new value works, e.g. the
+date plus a letter.
+
 ## Files
 
 | File | Purpose |
